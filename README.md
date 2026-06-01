@@ -56,5 +56,5 @@ Found a bug? Have an idea? [Open an issue](https://github.com/soltiHQ/proto/issu
 <div>
   <a href="https://github.com/soltiHQ/sdk"><img alt="Taskvisor" src="https://img.shields.io/badge/SDK-2c3e50?style=for-the-badge&logo=rust&logoColor=white"></a>
   <a href="https://github.com/soltiHQ/taskvisor"><img alt="Taskvisor" src="https://img.shields.io/badge/Taskvisor-2c3e50?style=for-the-badge&logo=rust&logoColor=white"></a>
-  <a href="https://github.com/soltiHQ/podium"><img alt="Podium" src="https://img.shields.io/badge/Taskvisor-2c3e50?style=for-the-badge&logo=go&logoColor=white"></a>
+  <a href="https://github.com/soltiHQ/podium"><img alt="Podium" src="https://img.shields.io/badge/Podium-2c3e50?style=for-the-badge&logo=go&logoColor=white"></a>
 </div>
