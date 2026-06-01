@@ -54,6 +54,7 @@ Schema is versioned in the package path (`v1`).
 Found a bug? Have an idea? [Open an issue](https://github.com/soltiHQ/proto/issues) or send a PR.
 
 <div>
-  <a href="https://github.com/soltiHQ/sdk"><img alt="Dashboards" src="https://img.shields.io/badge/SDK-f46800?style=for-the-badge&logo=grafana&logoColor=white"></a>
+  <a href="https://github.com/soltiHQ/sdk"><img alt="Taskvisor" src="https://img.shields.io/badge/SDK-2c3e50?style=for-the-badge&logo=rust&logoColor=white"></a>
   <a href="https://github.com/soltiHQ/taskvisor"><img alt="Taskvisor" src="https://img.shields.io/badge/Taskvisor-2c3e50?style=for-the-badge&logo=rust&logoColor=white"></a>
+  <a href="https://github.com/soltiHQ/podium"><img alt="Podium" src="https://img.shields.io/badge/Taskvisor-2c3e50?style=for-the-badge&logo=golang&logoColor=white"></a>
 </div>
