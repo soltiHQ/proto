@@ -1,0 +1,31 @@
+name: Pr
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {
+  contents: read,
+  actions: write
+}
+
+jobs:
+  checks:
+    name: Run
+    uses: ./.github/workflows/.checks.yml
+
+  breaking:
+    name: Breaking
+    uses: ./.github/workflows/.breaking.yml
+
+  pr-check:
+    name: Pr Check
+    needs: [checks, breaking]
+    runs-on: ${{ vars.RUNS_ON }}
+    steps:
+      - name: All checks passed
+        run: echo "All Pr checks completed successfully!"

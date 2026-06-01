@@ -1,0 +1,37 @@
+version: '3'
+
+includes:
+  proto:
+    taskfile: https://raw.githubusercontent.com/soltiHQ/actions/main/taskfiles/proto/Taskfile.yml
+    vars:
+      image_patch: "-1"
+
+tasks:
+  ci/format:
+    desc: Check formatting ('buf format --diff --exit-code').
+    cmds:
+      - task: proto:format
+
+  ci/lint:
+    desc: Run 'buf lint'.
+    cmds:
+      - task: proto:lint
+
+  ci/build:
+    desc: Compile the schema ('buf build').
+    cmds:
+      - task: proto:build
+
+  ci/breaking:
+    desc: Detect breaking changes against main. Override with AGAINST=...
+    vars:
+      AGAINST: '{{.AGAINST | default ""}}'
+    cmds:
+      - task: proto:breaking
+        vars:
+          AGAINST: '{{.AGAINST}}'
+
+  format/fix:
+    desc: Auto-format protos ('buf format -w').
+    cmds:
+      - task: proto:format/fix
