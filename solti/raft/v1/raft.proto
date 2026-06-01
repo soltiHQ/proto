@@ -1,0 +1,248 @@
+syntax = "proto3";
+
+package solti.raft.v1;
+
+import "google/protobuf/struct.proto";
+
+// Internal control-plane state replicated through Raft.
+
+// One atomic Raft log entry.
+// All ops apply in a single transaction (all-or-nothing) on every replica's FSM.
+message Command {
+  repeated Op ops = 1;
+}
+
+// A single state mutation.
+message Op {
+  oneof op {
+    AgentMsg agent_upsert = 1;
+    string   agent_delete = 2;
+
+    UserMsg user_upsert = 3;
+    string  user_delete = 4;
+
+    RoleMsg role_upsert = 5;
+    string  role_delete = 6;
+
+    CredentialMsg credential_upsert = 7;
+    string        credential_delete = 8;
+
+    VerifierMsg verifier_upsert         = 9;
+    string      verifier_delete         = 10;
+    string      verifier_delete_by_cred = 11; // by credential id
+
+    SessionMsg              session_create         = 12;
+    string                  session_delete         = 13;
+    string                  session_delete_by_user = 14; // by user id
+    SessionRotateRefreshMsg session_rotate_refresh = 15;
+    SessionRevokeMsg        session_revoke         = 16;
+
+    SpecMsg spec_upsert = 17;
+    string  spec_delete = 18;
+
+    RolloutMsg rollout_upsert         = 19;
+    string     rollout_delete         = 20;
+    string     rollout_delete_by_spec = 21; // by spec id
+
+    string               event_notify        = 22; // append a notify event
+    EventRecordMsg       event_record        = 23; // append a recorded event
+    EventDeleteIssuesMsg event_delete_issues = 24; // drop matching issues
+  }
+}
+
+// Params for rotating a session's refresh token.
+message SessionRotateRefreshMsg {
+  string id            = 1;
+  bytes  refresh_hash  = 2;
+  int64  expires_at_ns = 3;
+}
+
+// Params for revoking a session.
+message SessionRevokeMsg {
+  string id            = 1;
+  int64  revoked_at_ns = 2;
+}
+
+// Mirrors internal/event.Payload.
+message EventPayloadMsg {
+  string id     = 1;
+  string by     = 2; // actor that caused the event
+  string name   = 3;
+  string detail = 4;
+}
+
+// One event-ring entry to replicate.
+message EventRecordMsg {
+  string          kind    = 1; // event kind, e.g. "agent_connected"
+  EventPayloadMsg payload = 2;
+}
+
+// Drops issue-ring entries matching kind + id.
+message EventDeleteIssuesMsg {
+  string kind = 1;
+  string id   = 2; // target entity id
+}
+
+// Mirrors domain/model.Agent.
+message AgentMsg {
+  string id            = 1;
+  string name          = 2;
+  string endpoint      = 3;
+  string endpoint_type = 4; // "grpc" or "http"
+  uint32 api_version   = 5;
+  string os            = 6;
+  string arch          = 7;
+  string platform      = 8;
+
+  int64  uptime_seconds        = 9;
+  int64  heartbeat_interval_ns = 10;
+  uint32 status                = 11; // AgentStatus: 0 active, 1 inactive, 2 disconnected
+
+  int64 created_at_ns   = 12;
+  int64 updated_at_ns   = 13;
+  int64 last_seen_at_ns = 14;
+  int64 stale_at_ns     = 15; // when the agent is considered stale
+
+  map<string, string> metadata     = 16; // agent-reported tags
+  map<string, string> labels       = 17; // control-plane-owned labels
+  repeated string     capabilities = 18;
+}
+
+// Mirrors domain/model.User.
+message UserMsg {
+  string id       = 1;
+  string subject  = 2; // external identity subject
+  string email    = 3;
+  string name     = 4;
+  bool   disabled = 5;
+
+  repeated string role_ids    = 6;
+  repeated string permissions = 7; // direct permissions, on top of roles
+
+  int64 created_at_ns = 8;
+  int64 updated_at_ns = 9;
+}
+
+// Mirrors domain/model.Role.
+message RoleMsg {
+  string id   = 1;
+  string name = 2;
+
+  repeated string permissions = 3;
+
+  int64 created_at_ns = 4;
+  int64 updated_at_ns = 5;
+}
+
+// Mirrors domain/model.Credential.
+message CredentialMsg {
+  string id      = 1;
+  string user_id = 2;
+  string auth    = 3; // auth method
+
+  map<string, string> secrets = 4;
+
+  int64 created_at_ns = 5;
+  int64 updated_at_ns = 6;
+}
+
+// Mirrors domain/model.Verifier.
+message VerifierMsg {
+  string id            = 1;
+  string credential_id = 2;
+  string auth          = 3; // auth method
+
+  map<string, string> data = 4;
+
+  int64 created_at_ns = 5;
+  int64 updated_at_ns = 6;
+}
+
+// Mirrors domain/model.Session.
+message SessionMsg {
+  string id            = 1;
+  string user_id       = 2;
+  string credential_id = 3;
+  string auth          = 4; // auth method
+  bytes  refresh_hash  = 5; // hash of the refresh token, never the raw token
+
+  int64 expires_at_ns = 6;
+  int64 revoked_at_ns = 7; // zero if not revoked
+  int64 created_at_ns = 8;
+  int64 updated_at_ns = 9;
+}
+
+// Mirrors domain/model.BackoffConfig.
+message BackoffMsg {
+  string jitter   = 1; // jitter strategy name, e.g. "none", "full"
+  int64  first_ms = 2;
+  int64  max_ms   = 3;
+  double factor   = 4;
+}
+
+// Mirrors domain/model.Spec.
+message SpecMsg {
+  string id   = 1;
+  string name = 2;
+  string slot = 3;
+
+  int32 version            = 4; // edit counter; bumps on every change
+  int32 generation         = 5; // runtime-relevant counter; bumps only on changes that need re-deploy
+  bool  deletion_requested = 6; // soft-delete flag; record lives until uninstall finishes
+
+  string                 kind_type   = 7; // backend kind, e.g. "subprocess"
+  google.protobuf.Struct kind_config = 8; // backend config; schema depends on kind_type
+
+  int64      timeout_ms   = 9;
+  string     restart_type = 10;
+  int64      interval_ms  = 11;
+  BackoffMsg backoff      = 12;
+
+  repeated string     targets       = 13; // explicit target agent ids
+  map<string, string> target_labels = 14; // selector for target agents
+  map<string, string> runner_labels = 15; // selector for runners
+
+  int64 created_at_ns = 16;
+  int64 updated_at_ns = 17;
+}
+
+// Mirrors domain/model.Rollout: a spec's state on one target.
+message RolloutMsg {
+  string id             = 1;
+  string spec_id        = 2;
+  string agent_id       = 3;
+  string actual_task_id = 4; // task id created on the agent
+  string err_msg        = 5;
+
+  int32 desired_generation  = 6; // spec generation to converge to
+  int32 observed_generation = 7; // spec generation confirmed on the agent
+  int32 attempts            = 8; // failed-apply counter
+
+  uint32 status = 9;  // SyncStatus: 0 pending, 1 synced, 2 drift, 3 failed, 4 unknown
+  uint32 intent = 10; // RolloutIntent: 0 noop, 1 install, 2 update, 3 uninstall
+
+  int64 created_at_ns     = 11;
+  int64 updated_at_ns     = 12;
+  int64 last_pushed_at_ns = 13; // last push to the agent
+  int64 last_synced_at_ns = 14; // last confirmed sync
+}
+
+// Full FSM state for Raft log compaction. Written by FSM.Snapshot, read by FSM.Restore.
+message Snapshot {
+  SnapshotHeader header = 1;
+
+  repeated AgentMsg      agents      = 2;
+  repeated UserMsg       users       = 3;
+  repeated RoleMsg       roles       = 4;
+  repeated CredentialMsg credentials = 5;
+  repeated VerifierMsg   verifiers   = 6;
+  repeated SessionMsg    sessions    = 7;
+  repeated SpecMsg       specs       = 8;
+  repeated RolloutMsg    rollouts    = 9;
+}
+
+// Snapshot guard header.
+message SnapshotHeader {
+  string magic   = 1; // fixed "SOLTI-SNAP"; rejects foreign files
+  uint32 version = 2; // layout version; bumps on incompatible changes
+}

@@ -1,0 +1,16 @@
+name: Breaking
+
+on: { workflow_call: {} }
+
+jobs:
+  breaking:
+    runs-on: ${{ vars.RUNS_ON }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Run breaking-change check
+        uses: soltiHQ/actions/taskfile@main
+        with:
+          command: ci/breaking
+          vars: AGAINST=https://github.com/${{ github.repository }}.git#branch=main
