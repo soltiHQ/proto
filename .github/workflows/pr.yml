@@ -2,7 +2,7 @@ name: Pr
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: pr-${{ github.ref }}
@@ -10,21 +10,28 @@ concurrency:
 
 permissions: {
   contents: read,
-  actions: write
+  actions: write,
+  pull-requests: read
 }
 
 jobs:
+  label-check:
+    name: Label check
+    uses: ./.github/workflows/.label-check.yml
+
   checks:
     name: Run
+    needs: label-check
     uses: ./.github/workflows/.checks.yml
 
   breaking:
     name: Breaking
+    needs: label-check
     uses: ./.github/workflows/.breaking.yml
 
   pr-check:
     name: Pr Check
-    needs: [checks, breaking]
+    needs: [label-check, checks, breaking]
     runs-on: ${{ vars.RUNS_ON }}
     steps:
       - name: All checks passed

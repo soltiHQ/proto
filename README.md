@@ -45,10 +45,6 @@ task format/fix   # clang-format -i (auto-format)
 
 Schema is versioned in the package path (`v1`).
 
-## License
-
-[Apache License, Version 2.0](LICENSE)
-
 ## Contributing
 
 Found a bug? Have an idea? [Open an issue](https://github.com/soltiHQ/proto/issues) or send a PR.

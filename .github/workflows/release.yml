@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions: { contents: read }
+
+jobs:
+  verify:
+    name: Verify tag is on main
+    runs-on: ${{ vars.RUNS_ON }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Ensure main is fetched
+        run: git fetch origin main --depth=1
+
+      - name: Verify tag commit is on main
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          TAG_COMMIT=$(git rev-list -n 1 "$REF")
+          git rev-parse --verify origin/main >/dev/null
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "::error::Tag commit is not an ancestor of origin/main"
+            exit 1
+          fi
+
+  gh-release:
+    name: GitHub release
+    needs: verify
+    runs-on: ${{ vars.RUNS_ON }}
+    permissions:
+      contents: write
+    steps:
+      - name: Build release body
+        id: body
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "body<<EOF"
+            echo "Pin consumers to this tag (sdk / podium \`Taskfile\`):"
+            echo
+            echo '```yaml'
+            echo "proto_ref: \"${REF_NAME}\""
+            echo '```'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: ${{ steps.body.outputs.body }}
