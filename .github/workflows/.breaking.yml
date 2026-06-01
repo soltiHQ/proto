@@ -9,8 +9,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Fetch main baseline
+        run: git fetch --no-tags origin +refs/heads/main:refs/heads/main
+
       - name: Run breaking-change check
         uses: soltiHQ/actions/taskfile@main
         with:
           command: ci/breaking
-          vars: AGAINST=https://github.com/${{ github.repository }}.git#branch=main

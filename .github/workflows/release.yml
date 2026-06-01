@@ -58,6 +58,7 @@ jobs:
             echo '```yaml'
             echo "proto_ref: \"${REF_NAME}\""
             echo '```'
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Release
