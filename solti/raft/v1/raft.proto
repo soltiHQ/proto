@@ -15,38 +15,38 @@ message Command {
 // A single state mutation.
 message Op {
   oneof op {
-    AgentMsg                agent_upsert            = 1;
-    string                  agent_delete            = 2;
+    AgentMsg agent_upsert = 1;
+    string   agent_delete = 2;
 
-    UserMsg                 user_upsert             = 3;
-    string                  user_delete             = 4;
+    UserMsg user_upsert = 3;
+    string  user_delete = 4;
 
-    RoleMsg                 role_upsert             = 5;
-    string                  role_delete             = 6;
+    RoleMsg role_upsert = 5;
+    string  role_delete = 6;
 
-    CredentialMsg           credential_upsert       = 7;
-    string                  credential_delete       = 8;
+    CredentialMsg credential_upsert = 7;
+    string        credential_delete = 8;
 
-    VerifierMsg             verifier_upsert         = 9;
-    string                  verifier_delete         = 10;
-    string                  verifier_delete_by_cred = 11; // by credential id
+    VerifierMsg verifier_upsert         = 9;
+    string      verifier_delete         = 10;
+    string      verifier_delete_by_cred = 11; // by credential id
 
-    SessionMsg              session_create          = 12;
-    string                  session_delete          = 13;
-    string                  session_delete_by_user  = 14; // by user id
-    SessionRotateRefreshMsg session_rotate_refresh  = 15;
-    SessionRevokeMsg        session_revoke          = 16;
+    SessionMsg              session_create         = 12;
+    string                  session_delete         = 13;
+    string                  session_delete_by_user = 14; // by user id
+    SessionRotateRefreshMsg session_rotate_refresh = 15;
+    SessionRevokeMsg        session_revoke         = 16;
 
-    SpecMsg                 spec_upsert             = 17;
-    string                  spec_delete             = 18;
+    SpecMsg spec_upsert = 17;
+    string  spec_delete = 18;
 
-    RolloutMsg              rollout_upsert          = 19;
-    string                  rollout_delete          = 20;
-    string                  rollout_delete_by_spec  = 21; // by spec id
+    RolloutMsg rollout_upsert         = 19;
+    string     rollout_delete         = 20;
+    string     rollout_delete_by_spec = 21; // by spec id
 
-    string                  event_notify            = 22; // append a notify event
-    EventRecordMsg          event_record            = 23; // append a recorded event
-    EventDeleteIssuesMsg    event_delete_issues     = 24; // drop matching issues
+    string               event_notify        = 22; // append a notify event
+    EventRecordMsg       event_record        = 23; // append a recorded event
+    EventDeleteIssuesMsg event_delete_issues = 24; // drop matching issues
   }
 }
 
@@ -94,9 +94,9 @@ message AgentMsg {
   string arch          = 7;
   string platform      = 8;
 
-  int64 uptime_seconds        = 9;
-  int64 heartbeat_interval_ns = 10;
-  uint32 status               = 11; // AgentStatus: 0 active, 1 inactive, 2 disconnected
+  int64  uptime_seconds        = 9;
+  int64  heartbeat_interval_ns = 10;
+  uint32 status                = 11; // AgentStatus: 0 active, 1 inactive, 2 disconnected
 
   int64 created_at_ns   = 12;
   int64 updated_at_ns   = 13;

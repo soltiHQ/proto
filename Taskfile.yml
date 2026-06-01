@@ -30,8 +30,3 @@ tasks:
       - task: proto:breaking
         vars:
           AGAINST: '{{.AGAINST}}'
-
-  format/fix:
-    desc: Auto-format protos ('buf format -w').
-    cmds:
-      - task: proto:format/fix

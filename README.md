@@ -40,10 +40,10 @@ Tasks run `buf` inside a Docker image, so local runs match CI. Requires [Taskfil
 
 ```shell
 task ci/lint      # buf lint
-task ci/format    # buf format --diff --exit-code (check)
+task ci/format    # clang-format check (aligned style)
 task ci/build     # buf build (compile the schema)
 task ci/breaking  # buf breaking against main
-task format/fix   # buf format -w (auto-format)
+task format/fix   # clang-format -i (auto-format)
 ```
 
 ## CI

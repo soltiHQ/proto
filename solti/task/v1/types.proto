@@ -85,9 +85,9 @@ message SubprocessTask {
     CommandMode command = 1; // direct command
     ScriptMode  script  = 2; // script via interpreter
   }
-  repeated KeyValue env  = 3;
-  optional string   cwd  = 4; // working directory; agent default if unset
-  bool fail_on_non_zero  = 5; // treat non-zero exit as failure
+  repeated KeyValue env              = 3;
+  optional string   cwd              = 4; // working directory; agent default if unset
+  bool              fail_on_non_zero = 5; // treat non-zero exit as failure
 }
 
 // Run a WebAssembly module.
