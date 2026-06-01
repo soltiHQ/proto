@@ -1,0 +1,2 @@
+# proto
+Solti proto schemas
