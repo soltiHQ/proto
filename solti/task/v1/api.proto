@@ -10,6 +10,10 @@ service TaskService {
   // Submit a new task; returns its id.
   rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
 
+  // Apply a spec to its slot.
+  // Always force-replaces regardless of the spec's admission.
+  rpc ApplyTask(ApplyTaskRequest) returns (ApplyTaskResponse);
+
   // Get one task's full state by id.
   rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse);
 
@@ -34,6 +38,16 @@ message SubmitTaskRequest {
 // SubmitTask output.
 message SubmitTaskResponse {
   string task_id = 1; // id of the new task; empty means soft failure, retry
+}
+
+// ApplyTask input.
+message ApplyTaskRequest {
+  CreateSpec spec = 1; // task definition; required
+}
+
+// ApplyTask output.
+message ApplyTaskResponse {
+  string task_id = 1; // id of the task running in the slot after apply
 }
 
 // GetTaskStatus input.
