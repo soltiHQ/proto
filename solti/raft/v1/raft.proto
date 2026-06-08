@@ -47,6 +47,9 @@ message Op {
     string               event_notify        = 22; // append a notify event
     EventRecordMsg       event_record        = 23; // append a recorded event
     EventDeleteIssuesMsg event_delete_issues = 24; // drop matching issues
+
+    AgentCredentialMsg agent_credential_upsert = 25;
+    string             agent_credential_delete = 26; // by agent id
   }
 }
 
@@ -106,6 +109,14 @@ message AgentMsg {
   map<string, string> metadata     = 16; // agent-reported tags
   map<string, string> labels       = 17; // control-plane-owned labels
   repeated string     capabilities = 18;
+}
+
+// Mirrors domain/model.AgentCredential - the per-agent bearer secret learned at discovery (TOFU) and reused for outbound calls to the agent.
+message AgentCredentialMsg {
+  string agent_id      = 1;
+  string token         = 2;
+  int64  created_at_ns = 3;
+  int64  updated_at_ns = 4;
 }
 
 // Mirrors domain/model.User.
