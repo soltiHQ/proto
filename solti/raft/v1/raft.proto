@@ -250,6 +250,8 @@ message Snapshot {
   repeated SessionMsg    sessions    = 7;
   repeated SpecMsg       specs       = 8;
   repeated RolloutMsg    rollouts    = 9;
+
+  repeated AgentCredentialMsg agent_credentials = 10;
 }
 
 // Snapshot guard header.
