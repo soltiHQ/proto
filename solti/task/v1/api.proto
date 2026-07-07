@@ -64,7 +64,7 @@ message GetTaskStatusResponse {
 // Filters are ANDed; omitted filters match all.
 message ListTasksRequest {
   optional string     slot   = 1; // filter by slot
-  optional TaskStatus status = 2; // filter by phase
+  optional TaskPhase phase  = 2; // filter by phase
   uint32              limit  = 3; // page size; 0 = default 100, max 1000
   uint32              offset = 4; // page offset; default 0
 }

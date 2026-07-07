@@ -6,41 +6,41 @@ package solti.task.v1;
 // Timestamps are Unix time in milliseconds unless stated otherwise.
 
 // Phase of a task's current attempt.
-enum TaskStatus {
-  TASK_STATUS_UNSPECIFIED = 0;
-  TASK_STATUS_PENDING     = 1; // queued, not started yet
-  TASK_STATUS_RUNNING     = 2; // currently executing
-  TASK_STATUS_SUCCEEDED   = 3; // finished successfully
-  TASK_STATUS_FAILED      = 4; // attempt failed; may restart per policy
-  TASK_STATUS_TIMEOUT     = 5; // killed after exceeding timeout_ms
-  TASK_STATUS_CANCELED    = 6; // stopped on request; not a failure
-  TASK_STATUS_EXHAUSTED   = 7; // restart budget spent; no more retries
+enum TaskPhase {
+  TASK_PHASE_UNSPECIFIED = 0;
+  TASK_PHASE_PENDING     = 1; // queued, not started yet
+  TASK_PHASE_RUNNING     = 2; // currently executing
+  TASK_PHASE_SUCCEEDED   = 3; // finished successfully
+  TASK_PHASE_FAILED      = 4; // attempt failed; may restart per policy
+  TASK_PHASE_TIMEOUT     = 5; // killed after exceeding timeout_ms
+  TASK_PHASE_CANCELED    = 6; // stopped on request; not a failure
+  TASK_PHASE_EXHAUSTED   = 7; // restart budget spent; no more retries
 }
 
 // When to restart a task after an attempt ends.
-enum RestartStrategy {
-  RESTART_STRATEGY_UNSPECIFIED = 0;
-  RESTART_STRATEGY_NEVER       = 1; // never restart
-  RESTART_STRATEGY_ON_FAILURE  = 2; // restart only on failure or non-zero exit
-  RESTART_STRATEGY_ALWAYS      = 3; // always restart; waits restart_interval_ms
+enum RestartPolicy {
+  RESTART_POLICY_UNSPECIFIED = 0;
+  RESTART_POLICY_NEVER       = 1; // never restart
+  RESTART_POLICY_ON_FAILURE  = 2; // restart only on failure or non-zero exit
+  RESTART_POLICY_ALWAYS      = 3; // always restart; waits restart_interval_ms
 }
 
 // Randomness added to each backoff delay to avoid retry storms.
-// "base" is the delay computed by BackoffStrategy before jitter.
-enum JitterStrategy {
-  JITTER_STRATEGY_UNSPECIFIED  = 0;
-  JITTER_STRATEGY_NONE         = 1; // exact base, no randomness
-  JITTER_STRATEGY_FULL         = 2; // uniform in [0, base]
-  JITTER_STRATEGY_EQUAL        = 3; // centered near base/2
-  JITTER_STRATEGY_DECORRELATED = 4; // min(max, rand(base * 3))
+// "base" is the delay computed by BackoffPolicy before jitter.
+enum JitterPolicy {
+  JITTER_POLICY_UNSPECIFIED  = 0;
+  JITTER_POLICY_NONE         = 1; // exact base, no randomness
+  JITTER_POLICY_FULL         = 2; // uniform in [0, base]
+  JITTER_POLICY_EQUAL        = 3; // centered near base/2
+  JITTER_POLICY_DECORRELATED = 4; // min(max, rand(base * 3))
 }
 
 // What to do when the target slot is already busy.
-enum AdmissionStrategy {
-  ADMISSION_STRATEGY_UNSPECIFIED     = 0;
-  ADMISSION_STRATEGY_DROP_IF_RUNNING = 1; // ignore the new task, report success
-  ADMISSION_STRATEGY_REPLACE         = 2; // cancel the running task, start the new one
-  ADMISSION_STRATEGY_QUEUE           = 3; // wait, run when the slot frees up
+enum AdmissionPolicy {
+  ADMISSION_POLICY_UNSPECIFIED     = 0;
+  ADMISSION_POLICY_DROP_IF_RUNNING = 1; // ignore the new task, report success
+  ADMISSION_POLICY_REPLACE         = 2; // cancel the running task, start the new one
+  ADMISSION_POLICY_QUEUE           = 3; // wait, run when the slot frees up
 }
 
 // Built-in script interpreter. Use CustomRuntime for anything else.
@@ -117,23 +117,47 @@ message TaskKind {
 }
 
 // Exponential backoff between restart attempts.
-message BackoffStrategy {
-  JitterStrategy jitter   = 1; // jitter applied to each delay
-  uint64         first_ms = 2; // initial delay (ms); must be > 0
-  uint64         max_ms   = 3; // delay cap (ms); must be >= first_ms
-  double         factor   = 4; // growth multiplier; must be finite and > 0
+message BackoffPolicy {
+  JitterPolicy jitter   = 1; // jitter applied to each delay
+  uint64       first_ms = 2; // initial delay (ms); must be > 0
+  uint64       max_ms   = 3; // delay cap (ms); must be >= first_ms
+  double       factor   = 4; // growth multiplier; must be finite and > 0
+}
+
+// Comparison operator for one selector requirement.
+enum SelectorOperator {
+  SELECTOR_OPERATOR_UNSPECIFIED    = 0;
+  SELECTOR_OPERATOR_IN             = 1; // label value must be one of values
+  SELECTOR_OPERATOR_NOT_IN         = 2; // label value must not be one of values
+  SELECTOR_OPERATOR_EXISTS         = 3; // label key must exist; values must be empty
+  SELECTOR_OPERATOR_DOES_NOT_EXIST = 4; // label key must not exist; values must be empty
+}
+
+// One set-based selector requirement.
+message SelectorRequirement {
+  string           key      = 1; // label key; non-empty
+  SelectorOperator operator = 2; // comparison operator
+  repeated string  values   = 3; // required for IN / NOT_IN; empty otherwise
+}
+
+// Label selector for runner routing.
+message RunnerSelector {
+  map<string, string>          match_labels      = 1; // exact key=value pairs
+  repeated SelectorRequirement match_expressions = 2; // set-based rules, ANDed with match_labels
 }
 
 // Immutable definition of a task, supplied at submission.
 message CreateSpec {
-  string              slot                = 1; // execution lane; non-empty, max 64 chars
-  TaskKind            kind                = 2; // execution backend; required
-  uint64              timeout_ms          = 3; // per-attempt timeout (ms); must be > 0
-  RestartStrategy     restart             = 4; // restart policy
-  optional uint64     restart_interval_ms = 5; // delay between runs; ALWAYS only
-  BackoffStrategy     backoff             = 6; // retry backoff; required
-  AdmissionStrategy   admission           = 7; // slot-conflict policy
-  map<string, string> labels              = 8; // runner selector labels
+  string              slot                = 1;  // execution lane; non-empty, max 64 chars
+  TaskKind            kind                = 2;  // execution backend; required
+  uint64              timeout_ms          = 3;  // per-attempt timeout (ms); must be > 0
+  RestartPolicy       restart             = 4;  // restart policy
+  optional uint64     restart_interval_ms = 5;  // delay between runs; ALWAYS only
+  BackoffPolicy       backoff             = 6;  // retry backoff; required
+  AdmissionPolicy     admission           = 7;  // slot-conflict policy
+  map<string, string> labels              = 8;  // metadata labels (routing / observability)
+  optional uint32     max_retries         = 9;  // failure-retry budget; omit = unlimited; 0 is invalid
+  RunnerSelector      runner_selector     = 10; // label-based runner routing; omit = any runner
 }
 
 // Identity, versioning and timestamps of a stored object.
@@ -145,8 +169,8 @@ message ObjectMeta {
 }
 
 // Observed status of a task's current attempt.
-message TaskStatusInfo {
-  TaskStatus      phase     = 1; // current phase
+message TaskStatus {
+  TaskPhase      phase     = 1; // current phase
   uint32          attempt   = 2; // attempt number (1-based)
   optional string error     = 3; // last error message, if any
   optional int32  exit_code = 4; // process exit code, if the process exited
@@ -156,13 +180,13 @@ message TaskStatusInfo {
 message TaskData {
   ObjectMeta     metadata = 1; // identity, version, timestamps
   CreateSpec     spec     = 2; // immutable definition
-  TaskStatusInfo status   = 3; // current attempt status
+  TaskStatus status   = 3; // current attempt status
 }
 
 // History record for one finished or running attempt.
 message TaskRunInfo {
   uint32          attempt     = 1; // attempt number (1-based)
-  TaskStatus      status      = 2; // phase of this attempt
+  TaskPhase      phase       = 2; // phase of this attempt
   int64           started_at  = 3; // start time (ms)
   optional int64  finished_at = 4; // end time (ms); absent while running
   optional string error       = 5; // error message, if any
