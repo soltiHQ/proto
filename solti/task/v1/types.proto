@@ -2,12 +2,9 @@ syntax = "proto3";
 
 package solti.task.v1;
 
-// Shared value types for the task management API.
-// Timestamps are Unix time in milliseconds unless stated otherwise.
-
 // Phase of a task's current attempt.
 enum TaskPhase {
-  TASK_PHASE_UNSPECIFIED = 0;
+  TASK_PHASE_UNSPECIFIED = 0; // no task phase
   TASK_PHASE_PENDING     = 1; // queued, not started yet
   TASK_PHASE_RUNNING     = 2; // currently executing
   TASK_PHASE_SUCCEEDED   = 3; // finished successfully
@@ -19,7 +16,7 @@ enum TaskPhase {
 
 // When to restart a task after an attempt ends.
 enum RestartPolicy {
-  RESTART_POLICY_UNSPECIFIED = 0;
+  RESTART_POLICY_UNSPECIFIED = 0; // no restart policy
   RESTART_POLICY_NEVER       = 1; // never restart
   RESTART_POLICY_ON_FAILURE  = 2; // restart only on failure or non-zero exit
   RESTART_POLICY_ALWAYS      = 3; // always restart; waits restart_interval_ms
@@ -28,7 +25,7 @@ enum RestartPolicy {
 // Randomness added to each backoff delay to avoid retry storms.
 // "base" is the delay computed by BackoffPolicy before jitter.
 enum JitterPolicy {
-  JITTER_POLICY_UNSPECIFIED  = 0;
+  JITTER_POLICY_UNSPECIFIED  = 0; // no jitter policy
   JITTER_POLICY_NONE         = 1; // exact base, no randomness
   JITTER_POLICY_FULL         = 2; // uniform in [0, base]
   JITTER_POLICY_EQUAL        = 3; // centered near base/2
@@ -37,51 +34,29 @@ enum JitterPolicy {
 
 // What to do when the target slot is already busy.
 enum AdmissionPolicy {
-  ADMISSION_POLICY_UNSPECIFIED     = 0;
+  ADMISSION_POLICY_UNSPECIFIED     = 0; // no admission policy
   ADMISSION_POLICY_DROP_IF_RUNNING = 1; // ignore the new task, report success
   ADMISSION_POLICY_REPLACE         = 2; // cancel the running task, start the new one
   ADMISSION_POLICY_QUEUE           = 3; // wait, run when the slot frees up
 }
 
-// Built-in script interpreter. Use CustomRuntime for anything else.
-enum ScriptRuntime {
-  SCRIPT_RUNTIME_UNSPECIFIED = 0;
-  SCRIPT_RUNTIME_BASH        = 1; // bash
-  SCRIPT_RUNTIME_PYTHON      = 2; // python / python3
-  SCRIPT_RUNTIME_NODE        = 3; // node
-}
-
 // One environment variable.
 message KeyValue {
-  string key   = 1;
-  string value = 2;
+  string key   = 1; // environment variable name
+  string value = 2; // environment variable value
 }
 
 // Run a command directly (resolved via PATH).
 message CommandMode {
   string          command = 1; // executable name or path
-  repeated string args    = 2;
+  repeated string args    = 2; // arguments passed to the executable
 }
 
-// User-defined interpreter for a script.
-message CustomRuntime {
-  string command = 1; // interpreter path, e.g. "ruby"
-  reserved 2; // removed inline-script flag
-}
-
-// Typed script runtime selection.
-message Runtime {
-  oneof runtime {
-    ScriptRuntime well_known = 1; // built-in interpreter
-    CustomRuntime custom     = 2; // user-defined interpreter
-  }
-}
-
-// Run a script through a known or custom interpreter.
+// Run a script through an interpreter.
 message ScriptMode {
-  Runtime         runtime = 1;
-  string          body    = 2; // script content, base64-encoded
-  repeated string args    = 3;
+  string          interpreter = 1; // executable name or path
+  string          body        = 2; // script content, base64-encoded
+  repeated string args        = 3; // arguments passed to the script
 }
 
 // Typed subprocess execution strategy.
@@ -94,39 +69,39 @@ message SubprocessMode {
 
 // Run an external OS process.
 message SubprocessTask {
-  SubprocessMode   mode             = 1;
-  repeated KeyValue env              = 2;
+  SubprocessMode    mode             = 1; // command or script configuration
+  repeated KeyValue env              = 2; // environment variables
   optional string   cwd              = 3; // working directory; agent default if unset
   bool              fail_on_non_zero = 4; // treat non-zero exit as failure
 }
 
 // Run a WebAssembly module.
-// (Reserved; agent support may be incomplete.)
 message WasmTask {
   string            module = 1; // path to the .wasm file
-  repeated string   args   = 2;
-  repeated KeyValue env    = 3;
+  repeated string   args   = 2; // module arguments
+  repeated KeyValue env    = 3; // environment variables
 }
 
-// Run an OCI container.
-// (Reserved; agent support may be incomplete.)
+// Explicit OCI container entrypoint override.
 message ContainerCommand {
   repeated string items = 1; // explicit entrypoint override; may be empty
 }
 
+// Run an OCI container.
 message ContainerTask {
-  string                   image   = 1; // image reference
+  string                    image   = 1; // image reference
   optional ContainerCommand command = 2; // absent = image default, present = explicit override
-  repeated string          args    = 3;
-  repeated KeyValue        env     = 4;
+  repeated string           args    = 3; // container arguments
+  repeated KeyValue         env     = 4; // environment variables
 }
 
 // Workload implemented by an application-provided runner.
 // Mirrors Kubernetes RawExtension: `raw` is one UTF-8 JSON value.
 message RawExtension {
-  bytes raw = 1;
+  bytes raw = 1; // UTF-8 JSON object interpreted by the runner
 }
 
+// Application-provided workload configuration.
 message ExtensionTask {
   RawExtension spec = 1; // arbitrary JSON object interpreted by the runner
 }
@@ -136,11 +111,11 @@ message ExtensionTask {
 message TaskWorkload {
   string api_version = 1; // workload API group/version; required
   string kind        = 2; // workload kind; required; built-ins must match their typed spec
-  oneof spec {
-    SubprocessTask subprocess = 3;
-    WasmTask       wasm       = 4;
-    ContainerTask  container  = 5;
-    ExtensionTask  extension  = 6;
+  oneof  spec {
+    SubprocessTask subprocess = 3; // subprocess workload
+    WasmTask       wasm       = 4; // WebAssembly workload
+    ContainerTask  container  = 5; // OCI container workload
+    ExtensionTask  extension  = 6; // application-provided workload
   }
 }
 
@@ -154,7 +129,7 @@ message BackoffPolicy {
 
 // Comparison operator for one selector requirement.
 enum SelectorOperator {
-  SELECTOR_OPERATOR_UNSPECIFIED    = 0;
+  SELECTOR_OPERATOR_UNSPECIFIED    = 0; // no selector operator
   SELECTOR_OPERATOR_IN             = 1; // label value must be one of values
   SELECTOR_OPERATOR_NOT_IN         = 2; // label value must not be one of values
   SELECTOR_OPERATOR_EXISTS         = 3; // label key must exist; values must be empty
@@ -163,44 +138,43 @@ enum SelectorOperator {
 
 // One set-based selector requirement.
 message SelectorRequirement {
-  string           key      = 1; // label key; non-empty
+  string           key = 1;      // label key; non-empty
   SelectorOperator operator = 2; // comparison operator
-  repeated string  values   = 3; // required for IN / NOT_IN; empty otherwise
+  repeated string  values = 3;   // required for IN / NOT_IN; empty otherwise
 }
 
-// Label selector for runner routing.
-message RunnerSelector {
+// Kubernetes-style selector for any labeled object.
+message LabelSelector {
   map<string, string>          match_labels      = 1; // exact key=value pairs
   repeated SelectorRequirement match_expressions = 2; // set-based rules, ANDed with match_labels
 }
 
 // Desired state of a Task resource.
 message TaskSpec {
-  string              slot                = 1;  // execution lane; non-empty, max 64 chars
-  TaskWorkload        workload            = 2;  // versioned executable desired state; required
-  uint64              timeout_ms          = 3;  // per-attempt timeout (ms); must be > 0
-  RestartPolicy       restart             = 4;  // restart policy
-  optional uint64     restart_interval_ms = 5;  // delay between runs; ALWAYS only
-  BackoffPolicy       backoff             = 6;  // retry backoff; required
-  AdmissionPolicy     admission           = 7;  // slot-conflict policy
-  reserved 8;                                  // labels moved to ObjectMeta
-  optional uint32     max_retries         = 9;  // failure-retry budget; omit = unlimited; 0 is invalid
-  RunnerSelector      runner_selector     = 10; // label-based runner routing; omit = any runner
+  string          slot                = 1; // execution lane; non-empty, max 64 chars
+  TaskWorkload    workload            = 2; // versioned executable desired state; required
+  uint64          timeout_ms          = 3; // per-attempt timeout (ms); must be > 0
+  RestartPolicy   restart             = 4; // restart policy
+  optional uint64 restart_interval_ms = 5; // delay between runs; ALWAYS only
+  BackoffPolicy   backoff             = 6; // retry backoff; required
+  AdmissionPolicy admission           = 7; // slot-conflict policy
+  optional uint32 max_retries     = 9;     // failure-retry budget; omit = unlimited; 0 is invalid
+  LabelSelector   runner_selector = 10;    // label-based runner routing; omit = any runner
 }
 
 // User-owned metadata accepted on create and apply.
 message TaskManifestMeta {
   string              name        = 1; // stable resource address
-  map<string, string> labels      = 2;
-  map<string, string> annotations = 3;
+  map<string, string> labels      = 2; // user-owned labels
+  map<string, string> annotations = 3; // user-owned annotations
 }
 
 // Desired Task resource. Server-owned identity and status are deliberately absent.
 message TaskManifest {
   string           api_version = 1; // solti.io/v1
   string           kind        = 2; // Task
-  TaskManifestMeta metadata    = 3;
-  TaskSpec         spec        = 4;
+  TaskManifestMeta metadata    = 3; // user-owned metadata
+  TaskSpec         spec        = 4; // desired Task state
 }
 
 // Identity, versioning and timestamps of a stored object.
@@ -210,45 +184,45 @@ message ObjectMeta {
   string              resource_version   = 3; // opaque store revision
   uint64              generation         = 4; // desired-state generation
   int64               creation_timestamp = 5; // creation time (ms)
-  map<string, string> labels              = 6;
-  map<string, string> annotations         = 7;
+  map<string, string> labels             = 6; // resource labels
+  map<string, string> annotations        = 7; // resource annotations
 }
 
 // Kubernetes-compatible three-valued condition status.
 enum ConditionStatus {
-  CONDITION_STATUS_UNSPECIFIED = 0;
-  CONDITION_STATUS_UNKNOWN     = 1;
-  CONDITION_STATUS_TRUE        = 2;
-  CONDITION_STATUS_FALSE       = 3;
+  CONDITION_STATUS_UNSPECIFIED = 0; // no condition status
+  CONDITION_STATUS_UNKNOWN     = 1; // controller has not determined the outcome
+  CONDITION_STATUS_TRUE        = 2; // condition currently holds
+  CONDITION_STATUS_FALSE       = 3; // condition currently does not hold
 }
 
 // One observed condition for a Task resource.
 message TaskCondition {
-  string          type                 = 1;
-  ConditionStatus status               = 2;
-  uint64          observed_generation  = 3;
+  string          type                 = 1; // stable condition type
+  ConditionStatus status               = 2; // current condition status
+  uint64          observed_generation  = 3; // desired generation described by this condition
   int64           last_transition_time = 4; // Unix time (ms)
-  string          reason               = 5;
-  string          message              = 6;
+  string          reason               = 5; // stable machine-readable reason
+  string          message              = 6; // human-readable diagnostic
 }
 
 // Observed controller and execution status of a Task.
 message TaskStatus {
   uint64                 observed_generation = 1; // latest desired generation processed by the controller
-  TaskPhase              phase                = 2; // current execution phase
-  uint32                 attempt              = 3; // execution attempt within observed_generation
-  optional string        error                = 4; // execution diagnostic, if any
-  optional int32         exit_code            = 5; // process exit code, if the process exited
-  repeated TaskCondition conditions           = 6; // controller conditions
+  TaskPhase              phase               = 2; // current execution phase
+  uint32                 attempt             = 3; // execution attempt within observed_generation
+  optional string        error               = 4; // execution diagnostic, if any
+  optional int32         exit_code           = 5; // process exit code, if the process exited
+  repeated TaskCondition conditions          = 6; // controller conditions
 }
 
 // Full Kubernetes-shaped Task resource.
 message Task {
   string     api_version = 1; // solti.io/v1
   string     kind        = 2; // Task
-  ObjectMeta metadata    = 3;
-  TaskSpec   spec        = 4;
-  TaskStatus status      = 5;
+  ObjectMeta metadata    = 3; // stored resource metadata
+  TaskSpec   spec        = 4; // desired Task state
+  TaskStatus status      = 5; // observed Task state
 }
 
 // History record for one finished or running attempt.

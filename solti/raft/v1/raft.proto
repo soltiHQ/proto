@@ -3,6 +3,7 @@ syntax = "proto3";
 package solti.raft.v1;
 
 import "google/protobuf/struct.proto";
+import "solti/agent/v1/types.proto";
 
 // Internal control-plane state replicated through Raft.
 
@@ -106,9 +107,10 @@ message AgentMsg {
   int64 last_seen_at_ns = 14;
   int64 stale_at_ns     = 15; // when the agent is considered stale
 
-  map<string, string> metadata     = 16; // agent-reported tags
-  map<string, string> labels       = 17; // control-plane-owned labels
-  repeated string     capabilities = 18;
+  map<string, string> metadata = 16; // agent-reported tags
+  map<string, string> labels   = 17; // control-plane-owned labels
+
+  solti.agent.v1.AgentCapabilities capabilities = 18;
 }
 
 // Mirrors domain/model.AgentCredential - the per-agent bearer secret learned at discovery (TOFU) and reused for outbound calls to the agent.

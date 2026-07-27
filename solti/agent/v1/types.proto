@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package solti.agent.v1;
+
+// Capabilities exposed by one agent.
+message AgentCapabilities {
+  repeated RunnerCapability runners = 1; // registered runner instances
+}
+
+// One registered runner and the workloads it accepts.
+message RunnerCapability {
+  string                name      = 1; // unique runner name
+  map<string, string>   labels    = 2; // labels matched by Task runner selectors
+  repeated WorkloadType workloads = 3; // workload GVKs routed to this runner
+}
+
+// API version and kind identifying one workload schema.
+message WorkloadType {
+  string api_version = 1; // workload GVK apiVersion
+  string kind        = 2; // workload GVK kind
+}
