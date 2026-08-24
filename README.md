@@ -55,8 +55,8 @@ task ci/breaking  # buf breaking against main
 ## Versioning
 
 Repository releases and Protobuf package paths are separate version markers. Pin generated bindings to an exact repository
-tag such as `v1.0.0`; `VERSION` contains the same release without the `v` prefix. The `v1` package suffix identifies the wire API
-generation and does not select an exact schema snapshot. Generate every imported package from the same tag.
+tag such as `v1.0.0`. The `v1` package suffix identifies the wire API generation and does not select an exact schema snapshot.
+Generate every imported package from the same tag.
 
 See [Generate bindings](docs/generate-bindings.md) for a complete checkout and generation flow, and [Versioning](docs/versioning.md) for compatibility rules.
 

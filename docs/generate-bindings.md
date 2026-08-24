@@ -12,7 +12,6 @@ Generate bindings from an exact repository tag, never from a moving branch. Keep
 ```shell
 git clone https://github.com/soltiHQ/proto.git proto
 git -C proto checkout --detach v1.0.0
-test "$(tr -d '\r\n' < proto/version)" = "1.0.0"
 buf build proto
 ```
 

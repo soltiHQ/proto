@@ -7,9 +7,7 @@ description: Pin one repository release, distinguish it from package versions, a
 
 The repository release and the Protobuf package path are separate version markers. Consumers need both to identify the contract they generated.
 
-## Pin the repository snapshot
-
-`VERSION` contains the exact repository release version. A release tag adds the `v` prefix, for example `VERSION` `1.0.0` corresponds to tag `v1.0.0`.
+## Pin an exact release
 
 Pin consumers to the exact repository tag and generate all required packages from that snapshot. This keeps imported messages and service definitions aligned.
 Follow [Generate bindings](generate-bindings.md) for the tagged checkout and consumer-owned generator configuration.
