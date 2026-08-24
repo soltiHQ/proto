@@ -1,8 +1,14 @@
 version: '3'
 
 includes:
+  docs:
+    taskfile: https://raw.githubusercontent.com/soltiHQ/actions/v1/taskfiles/docs/Taskfile.yml
   proto:
     taskfile: https://raw.githubusercontent.com/soltiHQ/actions/v1/taskfiles/proto/Taskfile.yml
+
+vars:
+  docs_version:
+    sh: tr -d '\r\n' < version
 
 tasks:
   fmt:
@@ -29,3 +35,18 @@ tasks:
     desc: Detect breaking changes against main. Override with AGAINST=...
     cmds:
       - task: proto:breaking
+
+  ci/docs:
+    desc: Validate the versioned public contract guide.
+    cmds:
+      - task: docs:validate
+        vars:
+          VERSION: '{{.docs_version}}'
+          PRODUCT: contracts
+          TITLE: Solti API Contracts
+          REPOSITORY: https://github.com/soltiHQ/proto
+          VERSION_PROVIDER: input
+          LINK_SOURCES: docs README.md
+      - task: docs:links/external
+        vars:
+          LINK_SOURCES: docs README.md

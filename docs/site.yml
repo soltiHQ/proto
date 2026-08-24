@@ -1,0 +1,30 @@
+schema: 1
+product: contracts
+title: Solti API Contracts
+compatibility_line: "1.0"
+repository: https://github.com/soltiHQ/proto
+
+version:
+  provider: input
+
+navigation:
+  - title: Start
+    pages:
+      - index
+      - contract-model
+      - generate-bindings
+
+  - title: Task API
+    pages:
+      - task-resources
+      - task-observation
+      - workloads-and-routing
+      - task-errors
+
+  - title: Agent API
+    pages:
+      - discovery-and-capabilities
+
+  - title: Release
+    pages:
+      - versioning

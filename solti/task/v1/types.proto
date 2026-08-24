@@ -8,10 +8,10 @@ enum TaskPhase {
   TASK_PHASE_PENDING     = 1; // desired generation is pending runtime observation
   TASK_PHASE_RUNNING     = 2; // an attempt has started
   TASK_PHASE_SUCCEEDED   = 3; // successful outcome recorded
-  TASK_PHASE_FAILED      = 4; // failure outcome recorded
-  TASK_PHASE_TIMEOUT     = 5; // timeout outcome recorded
+  TASK_PHASE_FAILED      = 4; // attempt, fatal, runtime, or non-cancel-like admission failure recorded
+  TASK_PHASE_TIMEOUT     = 5; // configured attempt deadline observed; retry may follow
   TASK_PHASE_CANCELED    = 6; // logical cancellation or canceled admission; physical exit is not implied
-  TASK_PHASE_EXHAUSTED   = 7; // failure retry budget exhaustion recorded
+  TASK_PHASE_EXHAUSTED   = 7; // retry-eligible failure stopped by restart policy or retry limit
 }
 
 // When to restart a task after an attempt ends.
@@ -54,6 +54,8 @@ message CommandMode {
 
 // Run a script through an interpreter.
 message ScriptMode {
+  reserved 4;
+
   string          interpreter = 1; // executable name or path
   string          body        = 2; // script content, base64-encoded
   repeated string args        = 3; // arguments passed to the script
@@ -69,6 +71,8 @@ message SubprocessMode {
 
 // Run an external OS process.
 message SubprocessTask {
+  reserved 5;
+
   SubprocessMode    mode             = 1; // command or script configuration
   repeated KeyValue env              = 2; // environment variables
   optional string   cwd              = 3; // working directory; agent default if unset
@@ -151,6 +155,8 @@ message LabelSelector {
 
 // Desired state of a Task resource.
 message TaskSpec {
+  reserved 8;
+
   string          slot                = 1;  // execution lane; non-empty, max 64 chars
   TaskWorkload    workload            = 2;  // versioned executable desired state; required
   uint64          timeout_ms          = 3;  // per-attempt timeout (ms); must be > 0

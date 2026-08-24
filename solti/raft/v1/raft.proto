@@ -10,254 +10,254 @@ import "solti/agent/v1/types.proto";
 // One atomic Raft log entry.
 // All ops apply in a single transaction (all-or-nothing) on every replica's FSM.
 message Command {
-  repeated Op ops = 1;
+  repeated Op ops = 1; // mutations carried by this Raft log entry
 }
 
 // A single state mutation.
 message Op {
   oneof op {
-    AgentMsg agent_upsert = 1;
-    string   agent_delete = 2;
+    AgentMsg agent_upsert = 1; // Agent snapshot to create or replace
+    string   agent_delete = 2; // Agent id to delete
 
-    UserMsg user_upsert = 3;
-    string  user_delete = 4;
+    UserMsg user_upsert = 3; // User snapshot to create or replace
+    string  user_delete = 4; // User id to delete
 
-    RoleMsg role_upsert = 5;
-    string  role_delete = 6;
+    RoleMsg role_upsert = 5; // Role snapshot to create or replace
+    string  role_delete = 6; // Role id to delete
 
-    CredentialMsg credential_upsert = 7;
-    string        credential_delete = 8;
+    CredentialMsg credential_upsert = 7; // Credential snapshot to create or replace
+    string        credential_delete = 8; // Credential id to delete
 
-    VerifierMsg verifier_upsert         = 9;
-    string      verifier_delete         = 10;
-    string      verifier_delete_by_cred = 11; // by credential id
+    VerifierMsg verifier_upsert         = 9;  // Verifier snapshot to create or replace
+    string      verifier_delete         = 10; // Verifier id to delete
+    string      verifier_delete_by_cred = 11; // Credential id whose verifier to delete
 
-    SessionMsg              session_create         = 12;
-    string                  session_delete         = 13;
-    string                  session_delete_by_user = 14; // by user id
-    SessionRotateRefreshMsg session_rotate_refresh = 15;
-    SessionRevokeMsg        session_revoke         = 16;
+    SessionMsg              session_create         = 12; // Session snapshot to create
+    string                  session_delete         = 13; // Session id to delete
+    string                  session_delete_by_user = 14; // User id whose sessions to delete
+    SessionRotateRefreshMsg session_rotate_refresh = 15; // refresh-token rotation parameters
+    SessionRevokeMsg        session_revoke         = 16; // Session revocation parameters
 
-    SpecMsg spec_upsert = 17;
-    string  spec_delete = 18;
+    SpecMsg spec_upsert = 17; // Spec snapshot to create or replace
+    string  spec_delete = 18; // Spec id to delete
 
-    RolloutMsg rollout_upsert         = 19;
-    string     rollout_delete         = 20;
-    string     rollout_delete_by_spec = 21; // by spec id
+    RolloutMsg rollout_upsert         = 19; // Rollout snapshot to create or replace
+    string     rollout_delete         = 20; // Rollout id to delete
+    string     rollout_delete_by_spec = 21; // Spec id whose rollouts to delete
 
-    string               event_notify        = 22; // append a notify event
-    EventRecordMsg       event_record        = 23; // append a recorded event
-    EventDeleteIssuesMsg event_delete_issues = 24; // drop matching issues
+    string               event_notify        = 22; // transient UI refresh event name
+    EventRecordMsg       event_record        = 23; // activity event to append to the ring
+    EventDeleteIssuesMsg event_delete_issues = 24; // issue-ring deletion filter
 
-    AgentCredentialMsg agent_credential_upsert = 25;
-    string             agent_credential_delete = 26; // by agent id
+    AgentCredentialMsg agent_credential_upsert = 25; // Agent credential to create or replace
+    string             agent_credential_delete = 26; // Agent id whose credential to delete
   }
 }
 
 // Params for rotating a session's refresh token.
 message SessionRotateRefreshMsg {
-  string id            = 1;
-  bytes  refresh_hash  = 2;
-  int64  expires_at_ns = 3;
+  string id            = 1; // Session id
+  bytes  refresh_hash  = 2; // new refresh-token hash, never the raw token
+  int64  expires_at_ns = 3; // new expiration time (Unix ns)
 }
 
 // Params for revoking a session.
 message SessionRevokeMsg {
-  string id            = 1;
-  int64  revoked_at_ns = 2;
+  string id            = 1; // Session id
+  int64  revoked_at_ns = 2; // revocation time (Unix ns)
 }
 
 // Mirrors internal/event.Payload.
 message EventPayloadMsg {
-  string id     = 1;
-  string by     = 2; // actor that caused the event
-  string name   = 3;
-  string detail = 4;
+  string id     = 1; // target entity id, when known
+  string by     = 2; // actor or subsystem that caused the event
+  string name   = 3; // target display name
+  string detail = 4; // event-specific detail
 }
 
 // One event-ring entry to replicate.
 message EventRecordMsg {
-  string          kind    = 1; // event kind, e.g. "agent_connected"
-  EventPayloadMsg payload = 2;
+  string          kind    = 1; // activity event kind
+  EventPayloadMsg payload = 2; // event attributes
 }
 
 // Drops issue-ring entries matching kind + id.
 message EventDeleteIssuesMsg {
-  string kind = 1;
-  string id   = 2; // target entity id
+  string kind = 1; // issue event kind to match
+  string id   = 2; // target entity id to match
 }
 
 // Mirrors domain/model.Agent.
 message AgentMsg {
-  string id            = 1;
-  string name          = 2;
-  string endpoint      = 3;
-  string endpoint_type = 4; // "grpc" or "http"
-  uint32 api_version   = 5;
-  string os            = 6;
-  string arch          = 7;
-  string platform      = 8;
+  string id            = 1; // stable Agent id
+  string name          = 2; // display name
+  string endpoint      = 3; // address used to reach the Agent
+  string endpoint_type = 4; // endpoint transport: "grpc" or "http"
+  uint32 api_version   = 5; // Agent API version; 1 = v1
+  string os            = 6; // operating-system name
+  string arch          = 7; // CPU architecture
+  string platform      = 8; // operating-system family
 
-  int64  uptime_seconds        = 9;
-  int64  heartbeat_interval_ns = 10;
-  uint32 status                = 11; // AgentStatus: 0 active, 1 inactive, 2 disconnected
+  int64  uptime_seconds        = 9;  // seconds since the Agent started
+  int64  heartbeat_interval_ns = 10; // Agent-reported heartbeat interval (ns)
+  uint32 status                = 11; // lifecycle status: 0 active, 1 inactive, 2 disconnected
 
-  int64 created_at_ns   = 12;
-  int64 updated_at_ns   = 13;
-  int64 last_seen_at_ns = 14;
-  int64 stale_at_ns     = 15; // when the agent is considered stale
+  int64 created_at_ns   = 12; // creation time (Unix ns)
+  int64 updated_at_ns   = 13; // last modification time (Unix ns)
+  int64 last_seen_at_ns = 14; // last successful sync time (Unix ns)
+  int64 stale_at_ns     = 15; // staleness deadline (Unix ns)
 
-  map<string, string> metadata = 16; // agent-reported tags
+  map<string, string> metadata = 16; // Agent-supplied tags
   map<string, string> labels   = 17; // control-plane-owned labels
 
-  solti.agent.v1.AgentCapabilities capabilities = 18;
+  solti.agent.v1.AgentCapabilities capabilities = 18; // registered runners and workload GVKs
 }
 
 // Mirrors domain/model.AgentCredential - the per-agent bearer secret learned at discovery (TOFU) and reused for outbound calls to the agent.
 message AgentCredentialMsg {
-  string agent_id      = 1;
-  string token         = 2;
-  int64  created_at_ns = 3;
-  int64  updated_at_ns = 4;
+  string agent_id      = 1; // Agent id and credential key
+  string token         = 2; // raw bearer secret; never expose or log
+  int64  created_at_ns = 3; // enrollment time (Unix ns)
+  int64  updated_at_ns = 4; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.User.
 message UserMsg {
-  string id       = 1;
-  string subject  = 2; // external identity subject
-  string email    = 3;
-  string name     = 4;
-  bool   disabled = 5;
+  string id       = 1; // unique internal User id
+  string subject  = 2; // stable external authentication subject
+  string email    = 3; // email address, when set
+  string name     = 4; // display name, when set
+  bool   disabled = 5; // whether the User is disabled
 
-  repeated string role_ids    = 6;
-  repeated string permissions = 7; // direct permissions, on top of roles
+  repeated string role_ids    = 6; // assigned Role ids
+  repeated string permissions = 7; // permissions granted directly to the User
 
-  int64 created_at_ns = 8;
-  int64 updated_at_ns = 9;
+  int64 created_at_ns = 8; // creation time (Unix ns)
+  int64 updated_at_ns = 9; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.Role.
 message RoleMsg {
-  string id   = 1;
-  string name = 2;
+  string id   = 1; // unique Role id
+  string name = 2; // Role name
 
-  repeated string permissions = 3;
+  repeated string permissions = 3; // permissions granted by the Role
 
-  int64 created_at_ns = 4;
-  int64 updated_at_ns = 5;
+  int64 created_at_ns = 4; // creation time (Unix ns)
+  int64 updated_at_ns = 5; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.Credential.
 message CredentialMsg {
-  string id      = 1;
-  string user_id = 2;
-  string auth    = 3; // auth method
+  string id      = 1; // unique credential id
+  string user_id = 2; // id of the owning User
+  string auth    = 3; // authentication mechanism
 
-  map<string, string> secrets = 4;
+  map<string, string> secrets = 4; // mechanism-specific credential secrets
 
-  int64 created_at_ns = 5;
-  int64 updated_at_ns = 6;
+  int64 created_at_ns = 5; // creation time (Unix ns)
+  int64 updated_at_ns = 6; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.Verifier.
 message VerifierMsg {
-  string id            = 1;
-  string credential_id = 2;
-  string auth          = 3; // auth method
+  string id            = 1; // unique verifier id
+  string credential_id = 2; // id of the credential being verified
+  string auth          = 3; // authentication mechanism
 
-  map<string, string> data = 4;
+  map<string, string> data = 4; // mechanism-specific verification material
 
-  int64 created_at_ns = 5;
-  int64 updated_at_ns = 6;
+  int64 created_at_ns = 5; // creation time (Unix ns)
+  int64 updated_at_ns = 6; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.Session.
 message SessionMsg {
-  string id            = 1;
-  string user_id       = 2;
-  string credential_id = 3;
-  string auth          = 4; // auth method
-  bytes  refresh_hash  = 5; // hash of the refresh token, never the raw token
+  string id            = 1; // unique Session id
+  string user_id       = 2; // id of the owning User
+  string credential_id = 3; // id of the credential used to issue the Session
+  string auth          = 4; // authentication mechanism used by the Session
+  bytes  refresh_hash  = 5; // stored refresh-token hash
 
-  int64 expires_at_ns = 6;
-  int64 revoked_at_ns = 7; // zero if not revoked
-  int64 created_at_ns = 8;
-  int64 updated_at_ns = 9;
+  int64 expires_at_ns = 6; // expiration time (Unix ns)
+  int64 revoked_at_ns = 7; // revocation time (Unix ns); zero if not revoked
+  int64 created_at_ns = 8; // creation time (Unix ns)
+  int64 updated_at_ns = 9; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.BackoffConfig.
 message BackoffMsg {
-  string jitter   = 1; // jitter strategy name, e.g. "none", "full"
-  int64  first_ms = 2;
-  int64  max_ms   = 3;
-  double factor   = 4;
+  string jitter   = 1; // jitter strategy
+  int64  first_ms = 2; // initial retry delay (ms)
+  int64  max_ms   = 3; // retry-delay cap (ms)
+  double factor   = 4; // delay growth multiplier
 }
 
 // Mirrors domain/model.Spec.
 message SpecMsg {
-  string id   = 1;
-  string name = 2;
-  string slot = 3;
+  string id   = 1; // unique Spec id
+  string name = 2; // human-readable Spec name
+  string slot = 3; // immutable execution lane on the Agent
 
-  int32 version            = 4; // edit counter; bumps on every change
-  int32 generation         = 5; // runtime-relevant counter; bumps only on changes that need re-deploy
-  bool  deletion_requested = 6; // soft-delete flag; record lives until uninstall finishes
+  int32 version            = 4; // edit counter bumped on every upsert
+  int32 generation         = 5; // runtime-change counter
+  bool  deletion_requested = 6; // soft-delete flag awaiting finalization
 
-  string                 kind_type   = 7; // backend kind, e.g. "subprocess"
-  google.protobuf.Struct kind_config = 8; // backend config; schema depends on kind_type
+  string                 kind_type   = 7; // task execution backend
+  google.protobuf.Struct kind_config = 8; // backend-specific task configuration
 
-  int64      timeout_ms   = 9;
-  string     restart_type = 10;
-  int64      interval_ms  = 11;
-  BackoffMsg backoff      = 12;
+  int64      timeout_ms   = 9;  // task execution timeout (ms)
+  string     restart_type = 10; // automatic restart policy
+  int64      interval_ms  = 11; // delay between runs for the always policy (ms)
+  BackoffMsg backoff      = 12; // restart retry-backoff parameters
 
-  repeated string     targets       = 13; // explicit target agent ids
-  map<string, string> target_labels = 14; // selector for target agents
-  map<string, string> runner_labels = 15; // selector for runners
+  repeated string     targets       = 13; // explicit target Agent ids
+  map<string, string> target_labels = 14; // target Agent label selector
+  map<string, string> runner_labels = 15; // runner label selector
 
-  int64 created_at_ns = 16;
-  int64 updated_at_ns = 17;
+  int64 created_at_ns = 16; // creation time (Unix ns)
+  int64 updated_at_ns = 17; // last modification time (Unix ns)
 }
 
 // Mirrors domain/model.Rollout: a spec's state on one target.
 message RolloutMsg {
-  string id             = 1;
-  string spec_id        = 2;
-  string agent_id       = 3;
-  string actual_task_id = 4; // task id created on the agent
-  string err_msg        = 5;
+  string id             = 1; // deterministic id of the Spec-Agent pair
+  string spec_id        = 2; // id of the associated Spec
+  string agent_id       = 3; // id of the target Agent
+  string actual_task_id = 4; // Task id returned by the last successful apply
+  string err_msg        = 5; // last synchronization error
 
-  int32 desired_generation  = 6; // spec generation to converge to
-  int32 observed_generation = 7; // spec generation confirmed on the agent
-  int32 attempts            = 8; // failed-apply counter
+  int32 desired_generation  = 6; // Spec generation the Rollout should apply
+  int32 observed_generation = 7; // Spec generation most recently installed on the Agent
+  int32 attempts            = 8; // failed push-attempt counter
 
-  uint32 status = 9;  // SyncStatus: 0 pending, 1 synced, 2 drift, 3 failed, 4 unknown
-  uint32 intent = 10; // RolloutIntent: 0 noop, 1 install, 2 update, 3 uninstall
+  uint32 status = 9;  // synchronization status: 0 pending, 1 synced, 2 drift, 3 failed, 4 unknown
+  uint32 intent = 10; // next action: 0 noop, 1 install, 2 update, 3 uninstall
 
-  int64 created_at_ns     = 11;
-  int64 updated_at_ns     = 12;
-  int64 last_pushed_at_ns = 13; // last push to the agent
-  int64 last_synced_at_ns = 14; // last confirmed sync
+  int64 created_at_ns     = 11; // creation time (Unix ns)
+  int64 updated_at_ns     = 12; // last modification time (Unix ns)
+  int64 last_pushed_at_ns = 13; // last push-attempt time (Unix ns)
+  int64 last_synced_at_ns = 14; // last confirmed synchronization time (Unix ns)
 }
 
 // Full FSM state for Raft log compaction. Written by FSM.Snapshot, read by FSM.Restore.
 message Snapshot {
-  SnapshotHeader header = 1;
+  SnapshotHeader header = 1; // snapshot format guard
 
-  repeated AgentMsg      agents      = 2;
-  repeated UserMsg       users       = 3;
-  repeated RoleMsg       roles       = 4;
-  repeated CredentialMsg credentials = 5;
-  repeated VerifierMsg   verifiers   = 6;
-  repeated SessionMsg    sessions    = 7;
-  repeated SpecMsg       specs       = 8;
-  repeated RolloutMsg    rollouts    = 9;
+  repeated AgentMsg      agents      = 2; // all persisted Agents
+  repeated UserMsg       users       = 3; // all persisted Users
+  repeated RoleMsg       roles       = 4; // all persisted Roles
+  repeated CredentialMsg credentials = 5; // all persisted User credentials
+  repeated VerifierMsg   verifiers   = 6; // all persisted credential verifiers
+  repeated SessionMsg    sessions    = 7; // all persisted Sessions
+  repeated SpecMsg       specs       = 8; // all persisted task Specs
+  repeated RolloutMsg    rollouts    = 9; // all persisted Rollout states
 
-  repeated AgentCredentialMsg agent_credentials = 10;
+  repeated AgentCredentialMsg agent_credentials = 10; // all persisted per-Agent credentials
 }
 
 // Snapshot guard header.
 message SnapshotHeader {
-  string magic   = 1; // fixed "SOLTI-SNAP"; rejects foreign files
-  uint32 version = 2; // layout version; bumps on incompatible changes
+  string magic   = 1; // snapshot format magic; SOLTI-SNAP
+  uint32 version = 2; // snapshot format version; currently 1
 }
