@@ -1,14 +1,23 @@
 version: '3'
 
 includes:
+  docs:
+    taskfile: https://raw.githubusercontent.com/soltiHQ/actions/v1/taskfiles/docs/Taskfile.yml
   proto:
-    taskfile: https://raw.githubusercontent.com/soltiHQ/actions/main/taskfiles/proto/Taskfile.yml
-    vars:
-      image_patch: "-1"
+    taskfile: https://raw.githubusercontent.com/soltiHQ/actions/v1/taskfiles/proto/Taskfile.yml
+
+vars:
+  docs_version:
+    sh: tr -d '\r\n' < version
 
 tasks:
-  ci/format:
-    desc: Check formatting ('buf format --diff --exit-code').
+  fmt:
+    desc: Format Protobuf sources in place.
+    cmds:
+      - task: proto:format/fix
+
+  ci/fmt:
+    desc: Verify Protobuf formatting without changing files.
     cmds:
       - task: proto:format
 
@@ -18,15 +27,26 @@ tasks:
       - task: proto:lint
 
   ci/build:
-    desc: Compile the schema ('buf build').
+    desc: Compile the schema with 'buf build'.
     cmds:
       - task: proto:build
 
   ci/breaking:
     desc: Detect breaking changes against main. Override with AGAINST=...
-    vars:
-      AGAINST: '{{.AGAINST | default ""}}'
     cmds:
       - task: proto:breaking
+
+  ci/docs:
+    desc: Validate the versioned public contract guide.
+    cmds:
+      - task: docs:validate
         vars:
-          AGAINST: '{{.AGAINST}}'
+          VERSION: '{{.docs_version}}'
+          PRODUCT: contracts
+          TITLE: Solti API Contracts
+          REPOSITORY: https://github.com/soltiHQ/proto
+          VERSION_PROVIDER: input
+          LINK_SOURCES: docs README.md
+      - task: docs:links/external
+        vars:
+          LINK_SOURCES: docs README.md

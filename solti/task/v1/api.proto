@@ -24,30 +24,45 @@ service TaskService {
   // List the attempt history of one task.
   rpc ListTaskRuns(ListTaskRunsRequest) returns (ListTaskRunsResponse);
 
-  // Stop a task and purge its history.
+  // Stop current reconciliation or request a terminal logical outcome for the
+  // current runtime while retaining desired Task state and run history.
+  // Cancellation does not suppress later reconciliation.
+  // Force-aborted task code can remain physically active.
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+  // Request a terminal logical outcome and purge retained state.
+  // Force-aborted task code can remain physically active.
   rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
 
   // Live-tail stdout/stderr events for a task.
   rpc StreamTaskLogs(StreamTaskLogsRequest) returns (stream StreamTaskLogsResponse);
 }
 
-// Optional identity and version checks for apply and delete.
+// Optional identity and version checks for apply, cancel, and delete.
 message WritePreconditions {
   optional string uid              = 1; // current resource UID
   optional string resource_version = 2; // current resourceVersion
 }
 
-// One readable cause attached to an API error.
-message StatusCause {
-  string          reason  = 1; // stable machine-readable reason
-  optional string field   = 2; // related request field, when known
-  string          message = 3; // readable diagnostic
+// Stable category of a failed write precondition.
+enum WriteConflictReason {
+  WRITE_CONFLICT_REASON_UNSPECIFIED               = 0; // no conflict reason; never emitted intentionally
+  WRITE_CONFLICT_REASON_UID_MISMATCH              = 1; // requested UID differs from the stored Task UID
+  WRITE_CONFLICT_REASON_RESOURCE_VERSION_MISMATCH = 2; // requested resourceVersion differs from the stored revision
+  WRITE_CONFLICT_REASON_PRECONDITION_FAILED       = 3; // failed precondition has no more specific v1 category
+}
+
+// One failed write precondition.
+message WriteConflictCause {
+  WriteConflictReason reason  = 1; // stable machine-readable category
+  optional string     field   = 2; // related request field, when known
+  string              message = 3; // readable diagnostic
 }
 
 // Structured details carried by an Aborted gRPC status for a write conflict.
 message WriteConflictDetails {
-  string               name   = 1; // conflicting Task name
-  repeated StatusCause causes = 2; // failed write preconditions
+  string                      name   = 1; // conflicting Task name
+  repeated WriteConflictCause causes = 2; // failed write preconditions
 }
 
 // CreateTask desired-state input.
@@ -86,9 +101,12 @@ message GetTaskResponse {
 // A non-empty continue token resumes the previous snapshot.
 // Filters must be repeated unchanged.
 message ListTasksRequest {
+  reserved 4;
+  reserved "offset";
+
   optional string    slot   = 1; // filter by slot
   repeated TaskPhase phases = 2; // OR; empty = all phases
-  uint32             limit  = 3; // page size
+  uint32             limit  = 3; // page size; zero = 100; maximum = 1000
 
   string label_selector = 5; // label-selector syntax
   string continue       = 6; // opaque token from the previous page
@@ -96,6 +114,9 @@ message ListTasksRequest {
 
 // ListTasks output.
 message ListTasksResponse {
+  reserved 2;
+  reserved "total";
+
   repeated Task tasks = 1; // one page of tasks
 
   string resource_version              = 3; // opaque collection version captured with this page
@@ -127,14 +148,31 @@ message WatchTasksResponse {
 }
 
 // ListTaskRuns input.
+// A non-empty continue token resumes the previous snapshot.
 message ListTaskRunsRequest {
-  string name = 1; // Task name
+  string name     = 1; // Task name
+  uint32 limit    = 2; // page size; zero = 100; maximum = 1000
+  string continue = 3; // opaque token from the previous page
 }
 
 // ListTaskRuns output.
 message ListTaskRunsResponse {
   repeated TaskRunInfo runs = 1; // attempts, oldest first
+
+  string resource_version              = 2; // opaque run collection version captured with this page
+  string continue                      = 3; // opaque token for the next page
+  optional uint64 remaining_item_count = 4; // attempts left in this snapshot
+  string          task_uid             = 5; // UID of the Task incarnation whose runs this snapshot contains
 }
+
+// CancelTask input.
+message CancelTaskRequest {
+  string             name          = 1; // Task name
+  WritePreconditions preconditions = 2; // absent = no identity or version check
+}
+
+// CancelTask output. Empty on success.
+message CancelTaskResponse {}
 
 // DeleteTask input.
 message DeleteTaskRequest {
@@ -147,7 +185,8 @@ message DeleteTaskResponse {}
 
 // StreamTaskLogs input.
 message StreamTaskLogsRequest {
-  string name = 1; // Task name
+  string name     = 1; // Task name
+  string task_uid = 2; // exact Task incarnation to subscribe to; required
 }
 
 // Source stream of a captured output line.
@@ -164,7 +203,8 @@ message OutputChunk {
   OutputStreamKind stream     = 3; // stdout or stderr
   uint64           seq        = 4; // per-stream sequence
   int64            ts         = 5; // time the agent read the line (ms)
-  bytes            line       = 6; // raw line content
+  bytes            line       = 6; // exact retained line bytes, without the line delimiter
+  bool             truncated  = 7; // true when source bytes were omitted from the end
 }
 
 // A new attempt started.
@@ -184,7 +224,8 @@ message RunFinished {
 
 // The subscriber fell behind and the server dropped events.
 message Lagged {
-  uint64 skipped = 1; // number of events missed
+  uint64 skipped       = 1; // number of events missed
+  uint64 skipped_bytes = 2; // retained line bytes missed across those events
 }
 
 // One StreamTaskLogs event: exactly one field is set.

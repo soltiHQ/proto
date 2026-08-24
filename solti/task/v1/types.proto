@@ -2,16 +2,16 @@ syntax = "proto3";
 
 package solti.task.v1;
 
-// Phase of a task's current attempt.
+// Logical lifecycle phase of a task.
 enum TaskPhase {
   TASK_PHASE_UNSPECIFIED = 0; // no task phase
-  TASK_PHASE_PENDING     = 1; // queued, not started yet
-  TASK_PHASE_RUNNING     = 2; // currently executing
-  TASK_PHASE_SUCCEEDED   = 3; // finished successfully
-  TASK_PHASE_FAILED      = 4; // attempt failed; may restart per policy
-  TASK_PHASE_TIMEOUT     = 5; // killed after exceeding timeout_ms
-  TASK_PHASE_CANCELED    = 6; // stopped on request; not a failure
-  TASK_PHASE_EXHAUSTED   = 7; // restart budget spent; no more retries
+  TASK_PHASE_PENDING     = 1; // desired generation is pending runtime observation
+  TASK_PHASE_RUNNING     = 2; // an attempt has started
+  TASK_PHASE_SUCCEEDED   = 3; // successful outcome recorded
+  TASK_PHASE_FAILED      = 4; // attempt, fatal, runtime, or non-cancel-like admission failure recorded
+  TASK_PHASE_TIMEOUT     = 5; // configured attempt deadline observed; retry may follow
+  TASK_PHASE_CANCELED    = 6; // logical cancellation or canceled admission; physical exit is not implied
+  TASK_PHASE_EXHAUSTED   = 7; // retry-eligible failure stopped by restart policy or retry limit
 }
 
 // When to restart a task after an attempt ends.
@@ -54,6 +54,8 @@ message CommandMode {
 
 // Run a script through an interpreter.
 message ScriptMode {
+  reserved 4;
+
   string          interpreter = 1; // executable name or path
   string          body        = 2; // script content, base64-encoded
   repeated string args        = 3; // arguments passed to the script
@@ -69,6 +71,8 @@ message SubprocessMode {
 
 // Run an external OS process.
 message SubprocessTask {
+  reserved 5;
+
   SubprocessMode    mode             = 1; // command or script configuration
   repeated KeyValue env              = 2; // environment variables
   optional string   cwd              = 3; // working directory; agent default if unset
@@ -151,15 +155,17 @@ message LabelSelector {
 
 // Desired state of a Task resource.
 message TaskSpec {
-  string          slot                = 1; // execution lane; non-empty, max 64 chars
-  TaskWorkload    workload            = 2; // versioned executable desired state; required
-  uint64          timeout_ms          = 3; // per-attempt timeout (ms); must be > 0
-  RestartPolicy   restart             = 4; // restart policy
-  optional uint64 restart_interval_ms = 5; // delay between runs; ALWAYS only
-  BackoffPolicy   backoff             = 6; // retry backoff; required
-  AdmissionPolicy admission           = 7; // slot-conflict policy
-  optional uint32 max_retries     = 9;     // failure-retry budget; omit = unlimited; 0 is invalid
-  LabelSelector   runner_selector = 10;    // label-based runner routing; omit = any runner
+  reserved 8;
+
+  string          slot                = 1;  // execution lane; non-empty, max 64 chars
+  TaskWorkload    workload            = 2;  // versioned executable desired state; required
+  uint64          timeout_ms          = 3;  // per-attempt timeout (ms); must be > 0
+  RestartPolicy   restart             = 4;  // restart policy
+  optional uint64 restart_interval_ms = 5;  // delay between runs; ALWAYS only
+  BackoffPolicy   backoff             = 6;  // retry backoff; required
+  AdmissionPolicy admission           = 7;  // slot-conflict policy
+  optional uint32 max_retries         = 9;  // failure-retry budget; omit = unlimited; 0 is invalid
+  LabelSelector   runner_selector     = 10; // label-based runner routing; omit = any runner
 }
 
 // User-owned metadata accepted on create and apply.
@@ -209,9 +215,9 @@ message TaskCondition {
 // Observed controller and execution status of a Task.
 message TaskStatus {
   uint64                 observed_generation = 1; // latest desired generation processed by the controller
-  TaskPhase              phase               = 2; // current execution phase
+  TaskPhase              phase               = 2; // current logical lifecycle phase
   uint32                 attempt             = 3; // execution attempt within observed_generation
-  optional string        error               = 4; // execution diagnostic, if any
+  optional string        error               = 4; // execution diagnostic; UTF-8-safe prefix of at most 32 KiB
   optional int32         exit_code           = 5; // process exit code, if the process exited
   repeated TaskCondition conditions          = 6; // controller conditions
 }
@@ -231,8 +237,8 @@ message TaskRunInfo {
   uint32          attempt              = 2; // attempt number within generation
   TaskPhase       phase                = 3; // phase of this attempt
   int64           started_at           = 4; // start time (ms)
-  optional int64  finished_at          = 5; // end time (ms); absent while running
-  optional string error                = 6; // error message, if any
+  optional int64  finished_at          = 5; // logical terminal-outcome time (ms); absent while running
+  optional string error                = 6; // diagnostic; UTF-8-safe prefix of at most 32 KiB
   optional int32  exit_code            = 7; // process exit code, if the process exited
   string          workload_api_version = 8; // workload GVK apiVersion captured for this run
   string          workload_kind        = 9; // workload GVK kind captured for this run
