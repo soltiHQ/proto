@@ -24,7 +24,8 @@ service TaskService {
   // List the attempt history of one task.
   rpc ListTaskRuns(ListTaskRunsRequest) returns (ListTaskRunsResponse);
 
-  // Stop a task and purge its history.
+  // Request a terminal logical outcome and purge retained state.
+  // Force-aborted task code can remain physically active.
   rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
 
   // Live-tail stdout/stderr events for a task.
@@ -127,13 +128,20 @@ message WatchTasksResponse {
 }
 
 // ListTaskRuns input.
+// A non-empty continue token resumes the previous snapshot.
 message ListTaskRunsRequest {
-  string name = 1; // Task name
+  string name     = 1; // Task name
+  uint32 limit    = 2; // page size; zero = 100; maximum = 1000
+  string continue = 3; // opaque token from the previous page
 }
 
 // ListTaskRuns output.
 message ListTaskRunsResponse {
   repeated TaskRunInfo runs = 1; // attempts, oldest first
+
+  string resource_version              = 2; // opaque run collection version captured with this page
+  string continue                      = 3; // opaque token for the next page
+  optional uint64 remaining_item_count = 4; // attempts left in this snapshot
 }
 
 // DeleteTask input.
@@ -164,7 +172,8 @@ message OutputChunk {
   OutputStreamKind stream     = 3; // stdout or stderr
   uint64           seq        = 4; // per-stream sequence
   int64            ts         = 5; // time the agent read the line (ms)
-  bytes            line       = 6; // raw line content
+  bytes            line       = 6; // exact retained line bytes, without the line delimiter
+  bool             truncated  = 7; // true when source bytes were omitted from the end
 }
 
 // A new attempt started.
@@ -184,7 +193,8 @@ message RunFinished {
 
 // The subscriber fell behind and the server dropped events.
 message Lagged {
-  uint64 skipped = 1; // number of events missed
+  uint64 skipped       = 1; // number of events missed
+  uint64 skipped_bytes = 2; // retained line bytes missed across those events
 }
 
 // One StreamTaskLogs event: exactly one field is set.

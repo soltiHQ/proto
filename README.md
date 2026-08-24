@@ -31,14 +31,18 @@ solti/
 
 ## Development
 
-Tasks run `buf` inside a Docker image, so local runs match CI. Requires [Taskfile](https://taskfile.dev/) and Docker.
+Commands delegate to the shared `soltiHQ/actions@v1` Proto Taskfile, which runs
+the local tools directly. Requires [Taskfile](https://taskfile.dev/),
+[Buf](https://buf.build/docs/cli/installation/), and `clang-format`. On macOS,
+the formatter bundled with Xcode Command Line Tools is detected automatically.
+CI pins Buf 1.50.0 and clang-format 18.
 
 ```shell
+task fmt          # clang-format -i (auto-format)
+task ci/fmt       # clang-format check (aligned style)
 task ci/lint      # buf lint
-task ci/format    # clang-format check (aligned style)
 task ci/build     # buf build (compile the schema)
 task ci/breaking  # buf breaking against main
-task format/fix   # clang-format -i (auto-format)
 ```
 
 ## Versioning

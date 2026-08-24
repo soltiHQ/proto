@@ -1,0 +1,19 @@
+name: PR action
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-action-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {
+  contents: read,
+  actions: write
+}
+
+jobs:
+  ci:
+    name: ci
+    uses: soltiHQ/actions/.github/workflows/proto-ci.yml@v1
