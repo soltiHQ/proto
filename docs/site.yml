@@ -1,7 +1,7 @@
 schema: 1
 product: contracts
 title: Solti API Contracts
-compatibility_line: "1.0"
+compatibility_line: "0.1"
 repository: https://github.com/soltiHQ/proto
 
 version:
