@@ -11,19 +11,30 @@ navigation:
   - title: Start
     pages:
       - index
+      - quick-start
       - contract-model
       - generate-bindings
 
   - title: Task API
     pages:
       - task-resources
-      - task-observation
+      - execution-policies
       - workloads-and-routing
+      - task-observation
       - task-errors
 
   - title: Agent API
     pages:
       - discovery-and-capabilities
+
+  - title: Internal
+    pages:
+      - raft-state
+
+  - title: Operate
+    pages:
+      - production-boundaries
+      - common-mistakes
 
   - title: Release
     pages:

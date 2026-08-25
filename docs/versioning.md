@@ -1,37 +1,55 @@
 ---
 title: Versioning
-description: Pin one repository release, distinguish it from package versions, and validate changes before tagging.
+description: Pin an exact Contracts release and keep repository, package, resource, endpoint, and snapshot versions distinct.
 ---
 
 # Versioning
 
-The repository release and the Protobuf package path are separate version markers. Consumers need both to identify the contract they generated.
+Contracts has several independent version markers. A consumer must know which boundary each marker identifies.
+
+## Keep the version domains separate
+
+| Marker | Example in this schema | What it identifies |
+|---|---|---|
+| Repository release | A tag such as `v0.1.1` | One exact snapshot of every `.proto` file and this guide. |
+| Documentation compatibility line | `0.1` | The major/minor release line served by this documentation. |
+| Protobuf package suffix | `solti.task.v1` | A wire API generation and generated namespace. |
+| Task resource API | `TaskManifest.api_version = "solti.io/v1"` | The public Task resource shape. |
+| Agent endpoint API | `SyncRequest.api_version = 1` | The API version spoken at the advertised endpoint. |
+| Raft snapshot format | `SnapshotHeader.version = 1` | The internal snapshot serialization format. |
+
+Changing one marker does not automatically change the others.
 
 ## Pin an exact release
 
-Pin consumers to the exact repository tag and generate all required packages from that snapshot. This keeps imported messages and service definitions aligned.
-Follow [Generate bindings](generate-bindings.md) for the tagged checkout and consumer-owned generator configuration.
+Generate all required packages from one exact repository tag. Do not use `main` as a production dependency and do not combine imports from separate checkouts.
 
-## Read the package path
+The documentation build reads the exact semantic version from the repository's root `version` file. CI verifies that `docs/site.yml` declares the matching major/minor compatibility line.
 
-Public packages currently use the `v1` namespace:
+Follow [Generate bindings](generate-bindings.md) for consumer-owned generator configuration and an external tagged schema checkout.
 
-- `solti.task.v1`
-- `solti.agent.v1`
-- `solti.discover.v1`
+## Understand compatibility checks
 
-The package suffix identifies the wire API generation. It is not a replacement for the exact repository tag.
+The repository's [`buf.yaml`](../buf.yaml) uses Buf `FILE` breaking-change policy. CI compares schema changes with `main` in addition to compiling and linting the schema.
 
-This guide belongs to documentation compatibility line `1.0`, derived from repository version `1.0.0`.
+A passing breaking-change check establishes compatibility under that configured Buf policy. It does not test runtime behavior, generated client migration, storage migration, or interoperability with every deployed consumer.
 
-## Validate before a tag
+Internal `solti.raft.v1` state remains part of the tagged source snapshot even though it is not a public agent contract. Snapshot restore must also validate `SnapshotHeader.magic` and `SnapshotHeader.version`.
 
-The repository checks formatting, Buf lint, schema build, and breaking changes against `main`. Documentation validation checks that this guide declares the same exact version and compatibility line.
+## Upgrade a consumer deliberately
 
-The public guide excludes internal `solti.raft.v1` state. That package remains part of the tagged source snapshot for its control-plane consumers.
+1. Select the target Contracts release tag.
+2. Review the schema and documentation changes between the current and target tags.
+3. Regenerate the complete required package set from the target tag.
+4. Compile the consumer from an empty generated-output directory.
+5. Test client/server interoperability for the RPCs the consumer uses.
+6. For an internal Raft consumer, test command decoding and snapshot restore with the supported stored formats.
+7. Update the pinned Contracts reference only after those checks pass.
 
-## Use tagged source for field-level details
+Do not edit copied schema or generated output to bridge an incompatibility. Change generator configuration or upgrade the consumer against the canonical contract.
 
-The 1.0 documentation does not declare an external generated schema reference. Read the tagged `.proto` files for exact RPC signatures, field types, field numbers, enum values, and comments.
+## Use tagged source for field details
 
-Keeping semantic guidance here and field-level definitions in the schema avoids maintaining two copies of the same contract.
+This guide explains semantics and integration boundaries. Read the tagged `.proto` files for exact RPC signatures, field types, numbers, enum values, reserved identities, and comments.
+
+Keeping field-level identities in the schema avoids maintaining a second wire definition in prose.

@@ -1,69 +1,134 @@
 ---
 title: Task observation
-description: Consume collection snapshots, watches, run history, and live output without treating them as the same stream.
+description: Consume Task snapshots, collection watches, run history, conditions, and live output without mixing their cursors or guarantees.
 ---
 
 # Task observation
 
-Task state, attempt history, and captured output use separate APIs. Their cursors and versions are opaque values with API-specific meaning.
+Task state, attempt history, and captured output use separate APIs. Each answers a different question and carries its own identity, cursor, retention, and loss semantics.
+
+## Choose the observation source
+
+| Need | RPC | Identity or cursor | Completeness |
+|---|---|---|---|
+| Current Task resources | `ListTasks` | `continue`, collection `resource_version` | Paginated collection snapshot |
+| Changes to Task resources | `WatchTasks` | watch `resource_version` | Stream of matching collection changes |
+| Attempt history | `ListTaskRuns` | Task name, `task_uid`, run `continue` | Paginated retained history |
+| Current live output | `StreamTaskLogs` | Task name and exact `task_uid` | Lossy live tail |
+
+Do not move a token or resource version from one API into another unless the target field explicitly accepts it.
 
 ## Page Task snapshots
 
 `ListTasks` applies slot, phase, and label filters together. Multiple phases are alternatives within the phase filter.
 
-A non-empty `continue` token resumes the previous collection snapshot. Repeat the original filters unchanged when requesting the next page.
-The response returns the snapshot's `resource_version`, the next token, and an optional remaining-item count.
+A non-empty `continue` token resumes the previous collection snapshot. Repeat the original filters unchanged on every page. The response returns:
 
-For both `ListTasks` and `ListTaskRuns`, `limit = 0` selects the default page size of 100. The maximum accepted value is 1000; a larger value returns `InvalidArgument`.
+- one page of `Task` resources;
+- the snapshot's opaque `resource_version`;
+- an opaque `continue` token for the next page;
+- an optional `remaining_item_count`.
 
-Do not parse or construct continuation tokens or resource versions.
+For `ListTasks` and `ListTaskRuns`, `limit = 0` selects the default page size of 100. The maximum accepted value is 1000.
+
+Do not parse, compare numerically, or construct continuation tokens or resource versions.
 
 ## Watch collection changes
 
-`WatchTasks` applies the same filter categories and emits `ADDED`, `MODIFIED`, and `DELETED` events.
-An absent resource version or the value `"0"` requests current matching objects followed by later changes.
+`WatchTasks` applies the same filter categories as `ListTasks`. Its event types are:
 
-Each event contains a complete Task snapshot for that change. The watch stream is distinct from paginated list continuation.
+| Event | Meaning |
+|---|---|
+| `ADDED` | A Task entered the watched collection. |
+| `MODIFIED` | A watched Task changed. |
+| `DELETED` | A Task left the watched collection. |
 
-## Bind run history to an incarnation
+Each event carries a complete Task snapshot for that change.
 
-`ListTaskRuns` returns attempts oldest first. Each run is identified within the Task by desired-state `generation` and `attempt`.
+An absent `resource_version` or the value `"0"` requests current matching objects followed by later changes. A non-zero value is opaque. A terminal `OutOfRange` means the requested position is no longer retained; start a fresh observation cycle instead of replaying the expired value.
 
-The page-level `task_uid` identifies the Task incarnation whose history is being read. It stays fixed across continuation pages.
-Deleting and recreating a Task under the same name produces a different UID, which lets a client reject history from the wrong incarnation.
+Pagination continuation and watch position are different mechanisms.
 
-Run-history continuation and `resource_version` belong to the run snapshot, not the Task collection snapshot.
+## Read desired and observed generations
 
-## Treat live output as a lossy observation path
+The stored resource separates desired state from controller observation:
 
-`StreamTaskLogs` requires the exact Task UID obtained from a Task resource. A UID mismatch returns `NotFound` instead of subscribing to a different incarnation under the same name.
+```text
+Task.metadata.generation ── desired state revision ──► Task.status.observed_generation
+```
 
-The request UID identifies every event returned by the stream. A successfully opened stream stays pinned to that Task UID and the generation visible at subscription time. Deleting and recreating the same Task name never retargets the existing stream.
+When both values match, status describes the current desired generation. When they differ, status still describes an older observed generation.
 
-`StreamTaskLogs` emits four event kinds:
+`TaskStatus.attempt` is the current or latest attempt within `observed_generation`. It is not a global attempt counter across every generation.
 
-- `RunStarted` opens one generation and attempt.
-- `OutputChunk` carries exact retained line bytes, the source stream, a per-stream sequence, and the time the agent read the line.
-- `RunFinished` closes the current attempt and may carry an exit code.
-- `Lagged` reports events and retained bytes skipped because the subscriber fell behind.
+## Handle conditions as typed status
 
-The stream is a live tail, not a complete attempt archive. A consumer must treat `Lagged` as an explicit gap. Identify an attempt by Task UID, generation, and attempt number.
+Each `TaskCondition` carries:
+
+- `type`, a stable condition identity;
+- `status`, with `TRUE`, `FALSE`, or `UNKNOWN`;
+- `observed_generation`, which binds the condition to desired state;
+- `last_transition_time` in Unix milliseconds;
+- `reason`, a stable machine-readable category;
+- `message`, a human-readable diagnostic.
+
+Branch on condition type, status, observed generation, and documented reason values. Do not parse `message` for application behavior.
+
+## Bind run history to one incarnation
+
+`ListTaskRuns` returns attempts oldest first. Each `TaskRunInfo` contains desired-state `generation`, attempt number, phase, timestamps, optional error and exit code, and the workload GVK captured for that run.
+
+The page-level `task_uid` identifies the Task incarnation whose history is being read. It stays fixed across continuation pages. Deleting and recreating a Task under the same name produces a different UID.
+
+Run-history `continue` and `resource_version` values belong to the run snapshot. They are not Task collection cursors.
+
+## Treat live output as lossy
+
+`StreamTaskLogs` requires both the Task name and exact Task UID. The UID prevents a stream from silently following a different incarnation created under the same name.
+
+The stream emits four event shapes:
+
+| Event | Contract |
+|---|---|
+| `RunStarted` | Opens one generation and attempt and records its start time. |
+| `OutputChunk` | Carries one retained stdout or stderr line without its delimiter. |
+| `RunFinished` | Closes one generation and attempt and may include an exit code. |
+| `Lagged` | Reports the number of events and retained line bytes missed by this subscriber. |
+
+`OutputChunk.seq` is a per-stream sequence. `line` contains exact retained bytes. `truncated = true` means bytes were omitted from the end.
+
+A robust consumer tracks output by Task UID, generation, attempt, stream kind, and sequence:
+
+```text
+RunStarted(generation, attempt)
+├──► OutputChunk(stdout, seq ...)
+├──► OutputChunk(stderr, seq ...)
+├──► Lagged(skipped, skipped_bytes) ──► record an observation gap
+└──► RunFinished(generation, attempt)
+```
+
+The stream is a live tail, not an output archive. `Lagged` is a gap inside a live stream. A terminal gRPC status ends the stream itself.
 
 ## Interpret Task phases
 
-`TaskPhase` is a logical state recorded by the agent:
+`TaskPhase` records logical lifecycle state:
 
 | Phase | Meaning |
 |---|---|
-| `UNSPECIFIED` | Zero-value sentinel. The agent rejects it in phase filters and does not return it as a lifecycle state. |
-| `PENDING` | The desired generation is stored and awaits runtime observation. |
+| `UNSPECIFIED` | Zero-value sentinel. It is not a lifecycle state. |
+| `PENDING` | Desired generation is stored and awaits runtime observation. |
 | `RUNNING` | An attempt has started. |
-| `SUCCEEDED` | A successful attempt outcome was recorded. |
-| `FAILED` | An attempt failed, or execution ended through a fatal or runtime failure or a non-cancel-like admission rejection. It does not mean retry policy was exhausted. |
-| `TIMEOUT` | The agent observed that an attempt exceeded its configured deadline. Retry policy may still start another attempt. |
-| `CANCELED` | Logical cancellation, force-abort, or a cancel-like admission rejection was recorded. Physical exit is not implied. |
-| `EXHAUSTED` | A retry-eligible, non-fatal failure stopped because restart policy allowed no further attempt or the retry limit was reached. |
+| `SUCCEEDED` | A successful outcome was recorded. |
+| `FAILED` | An attempt, fatal, runtime, or non-cancel-like admission failure was recorded. It does not mean retries are exhausted. |
+| `TIMEOUT` | An attempt exceeded its configured deadline. Retry policy can still start another attempt. |
+| `CANCELED` | Logical cancellation or a cancel-like admission result was recorded. Physical exit is not implied. |
+| `EXHAUSTED` | An eligible failure stopped because restart policy allowed no further attempt or the retry budget was reached. |
 
-`TaskRunInfo.phase` describes one attempt. `TaskStatus.phase` is the latest recorded logical state of the Task. A later retry or reconciliation can start another attempt after a terminal attempt phase.
+`TaskRunInfo.phase` describes one attempt. `TaskStatus.phase` is the latest recorded logical state of the Task. A later retry or reconciliation can start another attempt after a terminal-looking phase.
 
-Use the Task resource and run history for recorded outcomes; do not infer physical process state from a logical phase alone.
+Use recorded resources and run history for logical outcomes. Do not infer physical process state from a phase alone.
+
+## Use the exact schema
+
+- [`ListTasks`, `WatchTasks`, `ListTaskRuns`, and `StreamTaskLogs`](../solti/task/v1/api.proto)
+- [`TaskStatus`, conditions, phases, and run history`](../solti/task/v1/types.proto)
