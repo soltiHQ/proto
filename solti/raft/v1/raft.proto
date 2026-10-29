@@ -51,6 +51,9 @@ message Op {
 
     AgentCredentialMsg agent_credential_upsert = 25; // Agent credential to create or replace
     string             agent_credential_delete = 26; // Agent id whose credential to delete
+
+    ExecutionRecordMsg execution_upsert = 27; // terminal observation to archive
+    string             execution_delete = 28; // archived observation id to prune
   }
 }
 
@@ -59,6 +62,9 @@ message SessionRotateRefreshMsg {
   string id            = 1; // Session id
   bytes  refresh_hash  = 2; // new refresh-token hash, never the raw token
   int64  expires_at_ns = 3; // new expiration time (Unix ns)
+  // Captured once by the command producer. Missing legacy values preserve the
+  // stored modification time; a present zero is the Unix epoch.
+  optional int64 updated_at_ns = 4;
 }
 
 // Params for revoking a session.
@@ -183,6 +189,14 @@ message SessionMsg {
   int64 revoked_at_ns = 7; // revocation time (Unix ns); zero if not revoked
   int64 created_at_ns = 8; // creation time (Unix ns)
   int64 updated_at_ns = 9; // last modification time (Unix ns)
+  // Distinguishes an explicitly stored Unix epoch from an unset timestamp.
+  // Nonzero legacy updated_at_ns values retain their existing meaning.
+  bool updated_at_present = 10;
+  // These presence flags preserve epoch timestamps without changing legacy
+  // scalar fields. Nonzero legacy values remain implicitly present.
+  bool revoked_at_present = 11;
+  bool expires_at_present = 12;
+  bool created_at_present = 13;
 }
 
 // Mirrors domain/model.BackoffConfig.
@@ -240,6 +254,30 @@ message RolloutMsg {
   int64 last_synced_at_ns = 14; // last confirmed synchronization time (Unix ns)
 }
 
+// One bounded terminal run observation. No command, environment, logs, or secrets.
+// Identity includes agent/task/UID/generation/attempt; captured_at_ns is trusted
+// control-plane observation time, preserved on duplicate identity.
+message ExecutionRecordMsg {
+  string         id                      = 1;
+  string         agent_id                = 2;
+  string         agent_name              = 3;
+  string         task_name               = 4;
+  string         task_uid                = 5;
+  uint64         generation              = 6;
+  uint32         attempt                 = 7;
+  string         status                  = 8;
+  int64          started_at_ms           = 9;
+  int64          finished_at_ms          = 10;
+  optional int32 exit_code               = 11;
+  string         error                   = 12;
+  string         workload_api_version    = 13;
+  string         workload_kind           = 14;
+  string         spec_id                 = 15;
+  string         spec_name               = 16;
+  string         source_resource_version = 17;
+  int64          captured_at_ns          = 18;
+}
+
 // Full FSM state for Raft log compaction. Written by FSM.Snapshot, read by FSM.Restore.
 message Snapshot {
   SnapshotHeader header = 1; // snapshot format guard
@@ -254,10 +292,11 @@ message Snapshot {
   repeated RolloutMsg    rollouts    = 9; // all persisted Rollout states
 
   repeated AgentCredentialMsg agent_credentials = 10; // all persisted per-Agent credentials
+  repeated ExecutionRecordMsg executions        = 11; // retained terminal run observations
 }
 
 // Snapshot guard header.
 message SnapshotHeader {
   string magic   = 1; // snapshot format magic; SOLTI-SNAP
-  uint32 version = 2; // snapshot format version; currently 1
+  uint32 version = 2; // snapshot format version; writer 3, readers accept 2 and 3
 }

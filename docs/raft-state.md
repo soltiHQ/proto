@@ -48,14 +48,15 @@ Upsert variants carry full message snapshots. Delete variants carry the target i
 | `SessionMsg` | Session ownership, refresh hash, expiration, revocation, and timestamps. |
 | `SpecMsg` | Desired task specification, target selection, runner labels, and revision counters. |
 | `RolloutMsg` | One Spec's synchronization state on one target agent. |
+| `ExecutionRecordMsg` | Retained terminal run observation and its capture provenance. |
 
 These messages mirror internal control-plane models. They are not replacements for the public `TaskManifest`, `Task`, or discovery messages.
 
 ## Handle special mutation payloads
 
-`SessionRotateRefreshMsg` carries a new refresh-token hash and expiration time. It never carries the raw refresh token.
+`SessionRotateRefreshMsg` carries a new refresh-token hash, expiration time and optional producer-captured `updated_at_ns`. It never carries the raw refresh token. The control-plane implementation preserves the stored modification time when replaying a legacy command without that field. A present zero represents the Unix epoch. `SessionMsg` has additive timestamp presence flags for modification, revocation, expiration and creation. They preserve valid epoch instants in snapshots without changing existing scalar fields or their nonzero legacy meaning. A missing zero retains the historical unset interpretation.
 
-`SessionRevokeMsg` identifies the session and its revocation time.
+`SessionRevokeMsg` identifies the session and its revocation time. The implementation uses that explicit operation time for modification metadata; replicas must not derive persisted metadata from their local clocks.
 
 `EventRecordMsg` carries an activity-event kind and payload. `EventDeleteIssuesMsg` removes issue-ring entries matching both kind and target ID. `event_notify` carries a transient UI refresh event name.
 
@@ -66,11 +67,11 @@ The schema defines the serialized payloads. Ring capacity, event delivery, and s
 `SnapshotHeader` currently declares:
 
 - `magic = "SOLTI-SNAP"`;
-- `version = 1`.
+- writer `version = 3`; the current implementation also reads version 2.
 
 Validate both fields before applying snapshot contents. This format version is independent of the repository release and the `solti.raft.v1` package suffix.
 
-The declared snapshot collections contain agents, agent credentials, users, roles, credentials, verifiers, sessions, Specs, and Rollouts. The exact field numbers and types in [`raft.proto`](../solti/raft/v1/raft.proto) are the persistence contract.
+The declared snapshot collections contain agents, agent credentials, users, roles, credentials, verifiers, sessions, Specs, Rollouts, and retained execution observations. The exact field numbers and types in [`raft.proto`](../solti/raft/v1/raft.proto) are the persistence contract.
 
 ## Protect secret-bearing state
 
