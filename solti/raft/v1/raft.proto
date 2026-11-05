@@ -119,12 +119,16 @@ message AgentMsg {
   solti.agent.v1.AgentCapabilities capabilities = 18; // registered runners and workload GVKs
 }
 
-// Mirrors domain/model.AgentCredential - the per-agent bearer secret learned at discovery (TOFU) and reused for outbound calls to the agent.
+// Mirrors domain/model.AgentCredential - one agent's bearer credential, checked at discovery and presented on outbound calls to the agent.
+// A derived credential (generation present) is recomputed from the enrollment secret and stores no token.
+// A stored credential keeps the raw token an agent chose when it enrolled without the secret (TOFU).
 message AgentCredentialMsg {
-  string agent_id      = 1; // Agent id and credential key
-  string token         = 2; // raw bearer secret; never expose or log
-  int64  created_at_ns = 3; // enrollment time (Unix ns)
-  int64  updated_at_ns = 4; // last modification time (Unix ns)
+  string          agent_id      = 1; // Agent id and credential key
+  string          token         = 2; // stored credential only: raw bearer secret, empty when derived; never expose or log
+  int64           created_at_ns = 3; // enrollment time (Unix ns)
+  int64           updated_at_ns = 4; // last modification time (Unix ns)
+  optional uint32 generation    = 5; // derived credential: derivation generation; absent for a stored token
+  bytes           secret_id     = 6; // derived credential: identifies the enrollment secret it derives from, never the secret itself
 }
 
 // Mirrors domain/model.User.
