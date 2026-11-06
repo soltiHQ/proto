@@ -40,7 +40,7 @@ Upsert variants carry full message snapshots. Delete variants carry the target i
 | Message | Stored purpose |
 |---|---|
 | `AgentMsg` | Agent endpoint, heartbeat state, metadata, labels, and runner capabilities. |
-| `AgentCredentialMsg` | Per-agent bearer secret learned during discovery. |
+| `AgentCredentialMsg` | Per-agent bearer credential: a derived generation and secret ID, or the raw token of an agent that enrolled without the enrollment secret. |
 | `UserMsg` | External subject, profile, direct permissions, and assigned roles. |
 | `RoleMsg` | Named permission set. |
 | `CredentialMsg` | Authentication mechanism and mechanism-specific secrets. |
@@ -67,7 +67,7 @@ The schema defines the serialized payloads. Ring capacity, event delivery, and s
 `SnapshotHeader` currently declares:
 
 - `magic = "SOLTI-SNAP"`;
-- writer `version = 3`; the current implementation also reads version 2.
+- writer `version = 4`; the current implementation also reads version 3.
 
 Validate both fields before applying snapshot contents. This format version is independent of the repository release and the `solti.raft.v1` package suffix.
 
@@ -75,7 +75,7 @@ The declared snapshot collections contain agents, agent credentials, users, role
 
 ## Protect secret-bearing state
 
-The internal messages include raw agent bearer tokens, credential secrets, verifier material, and refresh-token hashes. In particular, `AgentCredentialMsg.token` must never be exposed or logged.
+The internal messages include credential secrets, verifier material, refresh-token hashes, and the raw bearer tokens of agents that enrolled without the enrollment secret. A derived `AgentCredentialMsg` carries only a generation and a secret ID, from which a holder of the enrollment secret recomputes the token. In particular, `AgentCredentialMsg.token` must never be exposed or logged.
 
 Treat Raft logs, snapshots, diagnostics, backups, and generated debug output as potentially secret-bearing. Encryption, access control, redaction, and key lifecycle are deployment and implementation responsibilities.
 
