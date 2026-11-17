@@ -47,7 +47,7 @@ Upsert variants carry full message snapshots. Delete variants carry the target i
 | `CredentialMsg` | Authentication mechanism and mechanism-specific secrets. |
 | `VerifierMsg` | Verification material associated with a credential. |
 | `SessionMsg` | Session ownership, refresh hash, expiration, revocation, and timestamps. |
-| `SpecMsg` | Desired task specification, target selection, runner labels, and revision counters. The workload is a GVK, a JSON body, and the fingerprint of the schema it was validated against. |
+| `SpecMsg` | Desired task specification, target selection, runner labels, and revision counters. The workload is a GVK, a JSON body, and the fingerprint of the schema it was validated against. Field numbers 7 and 8, and the names `kind_type` and `kind_config`, are reserved: they held the former built-in task kind. |
 | `WorkloadSchemaMsg` | One workload JSON Schema keyed by its fingerprint, with the GVK, the first time it was recorded, and the Agent that first sent it. |
 | `RolloutMsg` | One Spec's synchronization state on one target agent. |
 | `ExecutionRecordMsg` | Retained terminal run observation and its capture provenance. |

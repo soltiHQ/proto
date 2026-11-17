@@ -63,7 +63,7 @@ capabilities {
 }
 ```
 
-The endpoint, timestamps, labels, and workload GVK are illustrative. Use values from the running agent and its registered runners.
+The endpoint, timestamps, labels, workload GVK, and schema fingerprint are illustrative. Use values from the running agent and its registered runners.
 
 ## Advertise routing capabilities
 
@@ -79,7 +79,7 @@ A capability snapshot describes what the agent advertises at heartbeat time. It 
 
 Heartbeats carry only fingerprints, never schema bodies. `WorkloadType.schema_fingerprint` is the lowercase hex sha256 of the RFC 8785 canonical JSON of the type's JSON Schema. It is required for placement: a type without a fingerprint cannot be matched to a workload.
 
-When the control plane sees a fingerprint it does not hold, it lists it in `SyncResponse.want_schemas`. The agent answers in its next `SyncRequest.schemas`, one `WorkloadSchema` (`fingerprint` and `schema` bytes) per requested fingerprint. Each schema is sent once, on request, and not repeated in later heartbeats.
+When the control plane sees a fingerprint it does not hold, it lists it in `SyncResponse.want_schemas`. The agent answers in its next `SyncRequest.schemas`, one `WorkloadSchema` (`fingerprint` and `schema` bytes) per requested fingerprint. Each schema is sent in response to a request, not unprompted in every heartbeat.
 
 The limits are:
 

@@ -223,8 +223,8 @@ message SpecMsg {
   int32 generation         = 5; // runtime-change counter
   bool  deletion_requested = 6; // soft-delete flag awaiting finalization
 
-  string                 kind_type   = 7; // task execution backend
-  google.protobuf.Struct kind_config = 8; // backend-specific task configuration
+  reserved 7, 8;
+  reserved "kind_type", "kind_config";
 
   int64      timeout_ms   = 9;  // task execution timeout (ms)
   string     restart_type = 10; // automatic restart policy
@@ -321,5 +321,5 @@ message WorkloadSchemaMsg {
 // Snapshot guard header.
 message SnapshotHeader {
   string magic   = 1; // snapshot format magic; SOLTI-SNAP
-  uint32 version = 2; // snapshot format version; writer 3, readers accept 2 and 3
+  uint32 version = 2; // snapshot format version; writer 4, readers accept 3 and 4
 }
