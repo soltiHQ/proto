@@ -31,6 +31,7 @@ Every `Op` in one `Command` applies in a single all-or-nothing transaction on ea
 | Users and access | upsert or delete users, roles, credentials, and verifiers |
 | Sessions | create or delete sessions, delete by user, rotate refresh hash, or revoke |
 | Desired delivery | upsert or delete Specs; upsert or delete Rollouts; delete Rollouts by Spec |
+| Workload schemas | record a workload JSON Schema once per fingerprint |
 | Events | notify a transient event, append an event record, or delete matching issue events |
 
 Upsert variants carry full message snapshots. Delete variants carry the target identity or a typed parameter message.
@@ -46,7 +47,8 @@ Upsert variants carry full message snapshots. Delete variants carry the target i
 | `CredentialMsg` | Authentication mechanism and mechanism-specific secrets. |
 | `VerifierMsg` | Verification material associated with a credential. |
 | `SessionMsg` | Session ownership, refresh hash, expiration, revocation, and timestamps. |
-| `SpecMsg` | Desired task specification, target selection, runner labels, and revision counters. |
+| `SpecMsg` | Desired task specification, target selection, runner labels, and revision counters. The workload is a GVK, a JSON body, and the fingerprint of the schema it was validated against. |
+| `WorkloadSchemaMsg` | One workload JSON Schema keyed by its fingerprint, with the GVK, the first time it was recorded, and the Agent that first sent it. |
 | `RolloutMsg` | One Spec's synchronization state on one target agent. |
 | `ExecutionRecordMsg` | Retained terminal run observation and its capture provenance. |
 
@@ -71,7 +73,7 @@ The schema defines the serialized payloads. Ring capacity, event delivery, and s
 
 Validate both fields before applying snapshot contents. This format version is independent of the repository release and the `solti.raft.v1` package suffix.
 
-The declared snapshot collections contain agents, agent credentials, users, roles, credentials, verifiers, sessions, Specs, Rollouts, and retained execution observations. The exact field numbers and types in [`raft.proto`](../solti/raft/v1/raft.proto) are the persistence contract.
+The declared snapshot collections contain agents, agent credentials, users, roles, credentials, verifiers, sessions, Specs, Rollouts, retained execution observations, and workload schemas. The exact field numbers and types in [`raft.proto`](../solti/raft/v1/raft.proto) are the persistence contract.
 
 ## Protect secret-bearing state
 

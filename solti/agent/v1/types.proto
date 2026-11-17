@@ -18,4 +18,8 @@ message RunnerCapability {
 message WorkloadType {
   string api_version = 1; // workload GVK apiVersion
   string kind        = 2; // workload GVK kind
+
+  // Lowercase hex sha256 of the RFC 8785 canonical JSON of the type's JSON Schema;
+  // required for placement.
+  string schema_fingerprint = 3;
 }

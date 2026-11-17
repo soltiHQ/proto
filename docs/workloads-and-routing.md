@@ -38,6 +38,12 @@ For a container, an absent `command` uses the image default. A present `Containe
 
 For an extension, `RawExtension.raw` is bytes containing one UTF-8 JSON value. Validation and interpretation of that JSON belong to the selected runner.
 
+## Describe a type's body with a JSON Schema
+
+An agent declares each workload type it accepts as an API-version and kind pair plus the fingerprint of a JSON Schema. The schema describes the body of a workload of that type. The control plane obtains the schema through [discovery](discovery-and-capabilities.md) and validates a workload body against it before placement.
+
+Podium, the control plane, sends every workload as `extension`: the body travels as one `ExtensionTask` JSON value, whatever the type, and the schema decides what a valid body is. The agent-side runner interprets it.
+
 ## Match a runner capability
 
 An agent advertises registered runner instances through `AgentCapabilities`:
