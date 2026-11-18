@@ -5,44 +5,23 @@ description: Select a versioned workload, match a compatible runner, and coordin
 
 # Workloads and routing
 
-Every public Task workload has an API version, a kind, and exactly one typed specification. An eligible runner must match the workload identity and the optional label selector.
+Every public Task workload has an API version, a kind, and one JSON body. An eligible runner must match the workload identity and the optional label selector.
 
 Slot admission is a separate decision. It defines how the agent handles a busy execution lane after routing.
 
-## Choose a workload representation
+## Send one body form
 
-`TaskWorkload` supports four public forms:
+`TaskWorkload` has one public form: `ExtensionTask`. Its `RawExtension.raw` is bytes containing one UTF-8 JSON object, the workload body. That is the case for every workload type, built-in or application-defined.
 
-| Form | Desired configuration |
-|---|---|
-| `SubprocessTask` | A direct command or interpreter-backed script, environment, working directory, and non-zero-exit behavior. |
-| `WasmTask` | A WebAssembly module path, arguments, and environment. |
-| `ContainerTask` | An OCI image, optional entrypoint override, arguments, and environment. |
-| `ExtensionTask` | One UTF-8 JSON value interpreted by an application-provided runner. |
+The body is validated against the JSON Schema that the declaring runner advertises for the workload's `api_version` and `kind`. The schema decides what a valid body is, and the runner interprets it. The schema requires the identity fields but does not publish a universal list of GVK strings. Obtain accepted API-version and kind pairs from `AgentCapabilities` or from the serving implementation's versioned documentation.
 
-Embedded workloads intentionally have no public wire representation.
-
-The selected `oneof spec` must agree with `api_version` and `kind`. The schema requires the identity fields but does not publish a universal list of built-in GVK strings. Obtain accepted API-version and kind pairs from `AgentCapabilities` or from the serving implementation's versioned documentation.
-
-## Configure each built-in shape
-
-For a subprocess:
-
-- `CommandMode.command` is an executable name or path resolved directly, with `args` passed to it;
-- `ScriptMode.interpreter` selects the executable that runs the script;
-- `ScriptMode.body` carries base64-encoded script content;
-- `cwd` is optional and uses the agent default when absent;
-- `fail_on_non_zero` decides whether a non-zero process exit is a failure.
-
-For a container, an absent `command` uses the image default. A present `ContainerCommand` is an explicit entrypoint override, even when its `items` list is empty.
-
-For an extension, `RawExtension.raw` is bytes containing one UTF-8 JSON value. Validation and interpretation of that JSON belong to the selected runner.
+Embedded workloads intentionally have no public wire representation. The former typed fields (field numbers 3, 4 and 5) are reserved and are not accepted.
 
 ## Describe a type's body with a JSON Schema
 
 An agent declares each workload type it accepts as an API-version and kind pair plus the fingerprint of a JSON Schema. The schema describes the body of a workload of that type. The control plane obtains the schema through [discovery](discovery-and-capabilities.md) and validates a workload body against it before placement.
 
-Podium, the control plane, sends every workload as `extension`: the body travels as one `ExtensionTask` JSON value, whatever the type, and the schema decides what a valid body is. The agent-side runner interprets it.
+See [Send one body form](#send-one-body-form) for how the body travels.
 
 ## Match a runner capability
 
