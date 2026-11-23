@@ -40,67 +40,8 @@ enum AdmissionPolicy {
   ADMISSION_POLICY_QUEUE           = 3; // wait, run when the slot frees up
 }
 
-// One environment variable.
-message KeyValue {
-  string key   = 1; // environment variable name
-  string value = 2; // environment variable value
-}
-
-// Run a command directly (resolved via PATH).
-message CommandMode {
-  string          command = 1; // executable name or path
-  repeated string args    = 2; // arguments passed to the executable
-}
-
-// Run a script through an interpreter.
-message ScriptMode {
-  reserved 4;
-
-  string          interpreter = 1; // executable name or path
-  string          body        = 2; // script content, base64-encoded
-  repeated string args        = 3; // arguments passed to the script
-}
-
-// Typed subprocess execution strategy.
-message SubprocessMode {
-  oneof mode {
-    CommandMode command = 1; // direct command
-    ScriptMode  script  = 2; // script via interpreter
-  }
-}
-
-// Run an external OS process.
-message SubprocessTask {
-  reserved 5;
-
-  SubprocessMode    mode             = 1; // command or script configuration
-  repeated KeyValue env              = 2; // environment variables
-  optional string   cwd              = 3; // working directory; agent default if unset
-  bool              fail_on_non_zero = 4; // treat non-zero exit as failure
-}
-
-// Run a WebAssembly module.
-message WasmTask {
-  string            module = 1; // path to the .wasm file
-  repeated string   args   = 2; // module arguments
-  repeated KeyValue env    = 3; // environment variables
-}
-
-// Explicit OCI container entrypoint override.
-message ContainerCommand {
-  repeated string items = 1; // explicit entrypoint override; may be empty
-}
-
-// Run an OCI container.
-message ContainerTask {
-  string                    image   = 1; // image reference
-  optional ContainerCommand command = 2; // absent = image default, present = explicit override
-  repeated string           args    = 3; // container arguments
-  repeated KeyValue         env     = 4; // environment variables
-}
-
 // Workload implemented by an application-provided runner.
-// Mirrors Kubernetes RawExtension: `raw` is one UTF-8 JSON value.
+// Mirrors Kubernetes RawExtension: `raw` is one UTF-8 JSON object.
 message RawExtension {
   bytes raw = 1; // UTF-8 JSON object interpreted by the runner
 }
@@ -111,15 +52,17 @@ message ExtensionTask {
 }
 
 // Versioned desired workload handled by a registered runner.
-// Embedded workloads intentionally have no public representation.
+// The body is one JSON object, carried in `extension` and validated against
+// the declaring runner's schema. Embedded workloads intentionally have no
+// public representation.
 message TaskWorkload {
+  reserved 3, 4, 5;
+  reserved "subprocess", "wasm", "container";
+
   string api_version = 1; // workload API group/version; required
-  string kind        = 2; // workload kind; required; built-ins must match their typed spec
+  string kind        = 2; // workload kind; required
   oneof  spec {
-    SubprocessTask subprocess = 3; // subprocess workload
-    WasmTask       wasm       = 4; // WebAssembly workload
-    ContainerTask  container  = 5; // OCI container workload
-    ExtensionTask  extension  = 6; // application-provided workload
+    ExtensionTask extension = 6; // the JSON body, validated against the runner's schema
   }
 }
 

@@ -30,7 +30,8 @@ Each `SyncRequest` carries:
 - agent-supplied metadata;
 - the API version spoken by the endpoint;
 - the agent's heartbeat interval in seconds;
-- current runner capabilities.
+- current runner capabilities, each workload type carrying the fingerprint of its JSON Schema;
+- in `schemas`, the JSON Schemas the control plane asked for in an earlier response.
 
 `ENDPOINT_TYPE_UNSPECIFIED` is invalid and is rejected by the server. `api_version = 1` identifies v1 of the agent endpoint API. It is not the Contracts repository release.
 
@@ -56,12 +57,13 @@ capabilities {
     workloads {
       api_version: "example.workloads/v1"
       kind: "ContainerJob"
+      schema_fingerprint: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
     }
   }
 }
 ```
 
-The endpoint, timestamps, labels, and workload GVK are illustrative. Use values from the running agent and its registered runners.
+The endpoint, timestamps, labels, workload GVK, and schema fingerprint are illustrative. Use values from the running agent and its registered runners.
 
 ## Advertise routing capabilities
 
@@ -73,11 +75,23 @@ The endpoint, timestamps, labels, and workload GVK are illustrative. Use values 
 
 A capability snapshot describes what the agent advertises at heartbeat time. It does not itself select a runner for a Task. Task routing also uses the workload GVK and optional structured runner selector.
 
+## Exchange workload schemas
+
+Heartbeats carry only fingerprints, never schema bodies. `WorkloadType.schema_fingerprint` is the lowercase hex sha256 of the RFC 8785 canonical JSON of the type's JSON Schema. It is required for placement: a type without a fingerprint cannot be matched to a workload.
+
+When the control plane sees a fingerprint it does not hold, it lists it in `SyncResponse.want_schemas`. The agent answers in its next `SyncRequest.schemas`, one `WorkloadSchema` (`fingerprint` and `schema` bytes) per requested fingerprint. Each schema is sent in response to a request, not unprompted in every heartbeat.
+
+The limits are:
+
+- one schema is at most 64 KiB;
+- the whole `SyncRequest`, schemas included, stays within the control plane's sync size limit;
+- the control plane accepts only schemas whose fingerprint the same request declares in its capabilities. A schema that no declared workload type references is ignored.
+
 Read [Workloads and routing](workloads-and-routing.md) for selector and slot behavior.
 
 ## Handle the response
 
-`SyncResponse.success` reports whether the control plane accepted the heartbeat. When it is false, `reason` carries a readable rejection cause. `retry_after_s` is a suggested delay before the next `Sync` call.
+`SyncResponse.success` reports whether the control plane accepted the heartbeat. `want_schemas` lists the fingerprints the agent should send in its next request. When `success` is false, `reason` carries a readable rejection cause. `retry_after_s` is a suggested delay before the next `Sync` call.
 
 The schema does not define precedence between `retry_after_s` and the agent's own heartbeat scheduler. That policy belongs to the implementations using the contract.
 

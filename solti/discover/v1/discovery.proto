@@ -33,6 +33,14 @@ message SyncRequest {
   int32               heartbeat_interval_s = 12; // agent's heartbeat period (seconds)
 
   solti.agent.v1.AgentCapabilities capabilities = 13; // registered runners and workload GVKs
+
+  repeated WorkloadSchema schemas = 14; // schemas the control plane asked for in want_schemas
+}
+
+// One workload JSON Schema, sent only when the control plane asked for its fingerprint.
+message WorkloadSchema {
+  string fingerprint = 1; // lowercase hex sha256 of the RFC 8785 canonical JSON of `schema`
+  bytes  schema      = 2; // JSON Schema document; at most 64 KiB
 }
 
 // Reply to one heartbeat.
@@ -40,4 +48,6 @@ message SyncResponse {
   bool   success       = 1; // true if accepted
   string reason        = 2; // cause when success = false
   int32  retry_after_s = 3; // suggested wait before next Sync (seconds)
+
+  repeated string want_schemas = 4; // fingerprints the agent should send in the next request's schemas
 }

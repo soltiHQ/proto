@@ -54,6 +54,8 @@ message Op {
 
     ExecutionRecordMsg execution_upsert = 27; // terminal observation to archive
     string             execution_delete = 28; // archived observation id to prune
+
+    WorkloadSchemaMsg workload_schema_upsert = 29; // workload schema to record
   }
 }
 
@@ -221,8 +223,8 @@ message SpecMsg {
   int32 generation         = 5; // runtime-change counter
   bool  deletion_requested = 6; // soft-delete flag awaiting finalization
 
-  string                 kind_type   = 7; // task execution backend
-  google.protobuf.Struct kind_config = 8; // backend-specific task configuration
+  reserved 7, 8;
+  reserved "kind_type", "kind_config";
 
   int64      timeout_ms   = 9;  // task execution timeout (ms)
   string     restart_type = 10; // automatic restart policy
@@ -235,6 +237,11 @@ message SpecMsg {
 
   int64 created_at_ns = 16; // creation time (Unix ns)
   int64 updated_at_ns = 17; // last modification time (Unix ns)
+
+  string                 workload_api_version        = 18; // workload GVK apiVersion
+  string                 workload_kind               = 19; // workload GVK kind
+  google.protobuf.Struct workload_body               = 20; // workload body validated against its schema
+  string                 workload_schema_fingerprint = 21; // fingerprint of the schema the body was validated against
 }
 
 // Mirrors domain/model.Rollout: a spec's state on one target.
@@ -297,10 +304,22 @@ message Snapshot {
 
   repeated AgentCredentialMsg agent_credentials = 10; // all persisted per-Agent credentials
   repeated ExecutionRecordMsg executions        = 11; // retained terminal run observations
+
+  repeated WorkloadSchemaMsg workload_schemas = 12; // all recorded workload schemas
+}
+
+// A workload JSON Schema recorded once per fingerprint.
+message WorkloadSchemaMsg {
+  string fingerprint      = 1; // lowercase hex sha256 of the RFC 8785 canonical JSON of `schema`
+  string api_version      = 2; // workload GVK apiVersion
+  string kind             = 3; // workload GVK kind
+  bytes  schema           = 4; // JSON Schema document
+  int64  first_seen_at_ns = 5; // time the schema was first recorded (Unix ns)
+  string first_agent_id   = 6; // id of the Agent that first sent it
 }
 
 // Snapshot guard header.
 message SnapshotHeader {
   string magic   = 1; // snapshot format magic; SOLTI-SNAP
-  uint32 version = 2; // snapshot format version; writer 3, readers accept 2 and 3
+  uint32 version = 2; // snapshot format version; writer 4, readers accept 3 and 4
 }
